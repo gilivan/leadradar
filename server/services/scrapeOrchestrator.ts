@@ -53,7 +53,7 @@ export async function runScrapeJob(triggeredBy: TriggerType = "manual"): Promise
     }
 
     const apifyToken = settings["apify_token"] || "";
-    const actorId = settings["apify_actor_id"] || "apify/linkedin-post-search-scraper";
+    const actorId = settings["apify_actor_id"] || "harvestapi/linkedin-post-search";
     const minScore = parseFloat(settings["min_relevance_score"] || "0.6");
 
     if (!apifyToken) {

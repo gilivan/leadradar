@@ -82,12 +82,14 @@ function buildActorInput(actorId: string, input: ApifyRunInput): Record<string, 
     return parts.join(" ");
   });
 
-  // Support multiple known LinkedIn actors
-  if (actorId.includes("linkedin-post-search") || actorId.includes("post-search")) {
+  // harvestapi/linkedin-post-search — actor recomendado por defecto.
+  // Schema verificado contra /v2/acts/harvestapi~linkedin-post-search/builds/default
+  if (actorId.includes("harvestapi") || actorId.includes("linkedin-post-search")) {
     return {
       searchQueries: queries,
-      maxResults: input.maxResults ?? 50,
-      proxy: { useApifyProxy: true, apifyProxyGroups: ["RESIDENTIAL"] },
+      maxPosts: input.maxResults ?? 50,
+      sortBy: "date",
+      postedLimit: "month",
     };
   }
 
@@ -98,7 +100,7 @@ function buildActorInput(actorId: string, input: ApifyRunInput): Record<string, 
     };
   }
 
-  // Generic fallback
+  // Generic fallback (sin proxy RESIDENTIAL: muchos planes FREE no lo tienen disponible)
   return {
     queries,
     maxResults: input.maxResults ?? 50,
@@ -130,62 +132,96 @@ function normalizeItems(
   items: Record<string, unknown>[],
   _actorId: string
 ): LinkedInPost[] {
-  return items
-    .filter((item) => item && (item.text || item.content || item.postText || item.description))
-    .map((item, idx) => {
-      const text =
-        (item.text as string) ||
-        (item.content as string) ||
-        (item.postText as string) ||
-        (item.description as string) ||
-        "";
+  // Filtra "error items" tipo {input, error} que devuelven algunos actores cuando fallan
+  const valid = items.filter((item) => {
+    if (!item) return false;
+    if (item.error && !item.content && !item.text) return false;
+    return Boolean(item.text || item.content || item.postText || item.description);
+  });
 
-      const url =
-        (item.url as string) ||
-        (item.postUrl as string) ||
-        (item.linkedinUrl as string) ||
-        "";
+  return valid.map((item, idx) => {
+    // Soporte tanto para campos en raíz (actores antiguos) como anidados (harvestapi)
+    const author = (item.author as Record<string, unknown> | undefined) || {};
+    const postedAt = (item.postedAt as Record<string, unknown> | string | undefined) || {};
 
-      const authorName =
-        (item.authorName as string) ||
-        (item.author as string) ||
-        (item.name as string) ||
-        "";
+    const text =
+      (item.content as string) ||
+      (item.text as string) ||
+      (item.postText as string) ||
+      (item.description as string) ||
+      "";
 
-      const authorTitle =
-        (item.authorTitle as string) ||
-        (item.headline as string) ||
-        (item.title as string) ||
-        "";
+    const url =
+      (item.linkedinUrl as string) ||
+      (item.url as string) ||
+      (item.postUrl as string) ||
+      "";
 
-      const authorCompany =
-        (item.authorCompany as string) ||
-        (item.company as string) ||
-        "";
+    // Autor: harvestapi anida en `author.{name,info,linkedinUrl}`
+    const authorName =
+      (author.name as string) ||
+      (item.authorName as string) ||
+      (typeof item.author === "string" ? (item.author as string) : "") ||
+      (item.name as string) ||
+      "";
 
-      const authorProfileUrl =
-        (item.authorProfileUrl as string) ||
-        (item.profileUrl as string) ||
-        "";
+    // En harvestapi, `author.info` es el headline (cargo + empresa en una línea)
+    const authorTitle =
+      (author.info as string) ||
+      (author.headline as string) ||
+      (item.authorTitle as string) ||
+      (item.headline as string) ||
+      (item.title as string) ||
+      "";
 
-      const publishedAt =
-        (item.publishedAt as string) ||
-        (item.date as string) ||
-        (item.postedAt as string) ||
-        "";
+    // harvestapi no devuelve company a nivel raíz; intentar extraerla del headline
+    const authorCompany =
+      (author.company as string) ||
+      (item.authorCompany as string) ||
+      (item.company as string) ||
+      extractCompanyFromTitle(authorTitle);
 
-      return {
-        id: (item.id as string) || `item-${idx}`,
-        url,
-        text,
-        authorName,
-        authorTitle,
-        authorCompany,
-        authorProfileUrl,
-        publishedAt,
-        contentType: "post" as const,
-      };
-    });
+    const authorProfileUrl =
+      (author.linkedinUrl as string) ||
+      (author.profileUrl as string) ||
+      (item.authorProfileUrl as string) ||
+      (item.profileUrl as string) ||
+      "";
+
+    // postedAt puede ser objeto {date,timestamp,...} (harvestapi) o string (otros)
+    const publishedAt =
+      (typeof postedAt === "object" && postedAt !== null
+        ? ((postedAt as Record<string, unknown>).date as string)
+        : "") ||
+      (item.publishedAt as string) ||
+      (item.date as string) ||
+      (typeof item.postedAt === "string" ? (item.postedAt as string) : "") ||
+      "";
+
+    // Engagement (harvestapi lo expone en `engagement`)
+    const engagement = (item.engagement as Record<string, unknown> | undefined) || {};
+
+    return {
+      id: (item.id as string) || `item-${idx}`,
+      url,
+      text,
+      authorName,
+      authorTitle,
+      authorCompany,
+      authorProfileUrl,
+      publishedAt,
+      contentType: "post" as const,
+      likes: (engagement.likeCount as number) ?? (item.likes as number),
+      comments: (engagement.commentCount as number) ?? (item.comments as number),
+    };
+  });
+}
+
+// Heurística simple: en LinkedIn el headline típico es "Cargo at/en/@ Empresa | ..."
+function extractCompanyFromTitle(title: string): string {
+  if (!title) return "";
+  const match = title.match(/(?:\s+at\s+|\s+en\s+|\s+@\s*)([^|·\-]+)/i);
+  return match ? match[1].trim().slice(0, 120) : "";
 }
 
 /**
