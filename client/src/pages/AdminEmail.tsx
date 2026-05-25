@@ -54,7 +54,7 @@ const PREVIEW_HTML = `<!DOCTYPE html>
         <td style="background:#f0b429;border-radius:8px;width:34px;height:34px;text-align:center;vertical-align:middle;"><span style="font-size:18px;line-height:34px;">&#9889;</span></td>
         <td style="padding-left:10px;vertical-align:middle;"><span style="font-size:20px;font-weight:700;color:#fff;letter-spacing:-0.3px;">LeadRadar</span><br/><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Inteligencia Comercial</span></td>
       </tr></table></td>
-      <td align="right" style="vertical-align:middle;"><span style="font-size:11px;color:#64748b;font-style:italic;">El Grupo</span></td>
+      <td align="right" style="vertical-align:middle;"><a href="https://elgrupo.com.co" target="_blank" style="text-decoration:none;"><img src="/manus-storage/elgrupo-logo-email_e511c1e1.png" alt="El Grupo" width="110" style="display:block;height:auto;opacity:0.9;" /></a></td>
     </tr></table>
   </td></tr>
   <!-- Banner -->
@@ -113,7 +113,7 @@ const PREVIEW_HTML = `<!DOCTYPE html>
   <tr><td style="background:#fff;border-radius:0 0 12px 12px;padding:18px 28px 22px;">
     <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
       <td><p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.6;">No responder este correo, dado que se ha generado de forma autom&aacute;tica por <strong>LeadRadar</strong>.</p><p style="margin:5px 0 0;font-size:11px;color:#cbd5e1;">Powered by LeadRadar &middot; <a href="https://elgrupo.com.co" style="color:#94a3b8;">El Grupo</a></p></td>
-      <td align="right" style="vertical-align:bottom;"><span style="font-size:11px;color:#94a3b8;font-style:italic;">El Grupo</span></td>
+      <td align="right" style="vertical-align:bottom;"><a href="https://elgrupo.com.co" target="_blank"><img src="/manus-storage/elgrupo-logo-email_e511c1e1.png" alt="El Grupo" width="80" style="display:block;height:auto;opacity:0.5;" /></a></td>
     </tr></table>
   </td></tr>
 </table>
