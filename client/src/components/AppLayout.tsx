@@ -101,7 +101,7 @@ export default function AppLayout({ children, title, subtitle, actions }: AppLay
               <Linkedin className="w-6 h-6 text-accent" />
             </div>
             <div className="text-left">
-              <h1 className="text-xl font-semibold text-foreground">LinkedIn Intelligence</h1>
+              <h1 className="text-xl font-semibold text-foreground">LeadRadar</h1>
               <p className="text-xs text-muted-foreground">Plataforma de oportunidades comerciales</p>
             </div>
           </div>
@@ -132,8 +132,8 @@ export default function AppLayout({ children, title, subtitle, actions }: AppLay
           </div>
           {sidebarOpen && (
             <div className="overflow-hidden">
-              <p className="text-sm font-semibold text-sidebar-foreground leading-tight">LinkedIn Intel</p>
-              <p className="text-[10px] text-sidebar-foreground/50 leading-tight">El Grupo · Oportunidades</p>
+              <p className="text-sm font-semibold text-sidebar-foreground leading-tight">LeadRadar</p>
+              <p className="text-[10px] text-sidebar-foreground/50 leading-tight">Oportunidades comerciales</p>
             </div>
           )}
         </div>
@@ -195,6 +195,31 @@ export default function AppLayout({ children, title, subtitle, actions }: AppLay
             </div>
           ))}
         </nav>
+
+        {/* El Grupo footer logo */}
+        <div className="px-4 py-3 border-t border-sidebar-border">
+          <a
+            href="https://elgrupo.com.co"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity duration-200"
+            title="El Grupo"
+          >
+            {sidebarOpen ? (
+              <img
+                src="/manus-storage/elgrupo-logo_812c280d.webp"
+                alt="El Grupo"
+                className="h-6 w-auto object-contain"
+              />
+            ) : (
+              <img
+                src="/manus-storage/elgrupo-logo_812c280d.webp"
+                alt="El Grupo"
+                className="h-5 w-5 object-contain"
+              />
+            )}
+          </a>
+        </div>
 
         {/* User */}
         <div className="border-t border-sidebar-border p-3">
