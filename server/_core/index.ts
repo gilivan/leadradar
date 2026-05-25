@@ -8,6 +8,11 @@ import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { sdk } from "./sdk";
+import { runScrapeJob } from "../services/scrapeOrchestrator";
+import { getDb } from "../db";
+import { eq } from "drizzle-orm";
+import { scheduleJobs } from "../../drizzle/schema";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -36,6 +41,38 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
   registerOAuthRoutes(app);
+
+  // ── Heartbeat handler for scheduled LinkedIn scraping ──────────────────────
+  app.post("/api/scheduled/scrape", async (req, res) => {
+    try {
+      const user = await sdk.authenticateRequest(req);
+      if (!user.isCron || !user.taskUid) {
+        return res.status(403).json({ error: "cron-only" });
+      }
+
+      // Update lastRunAt on the matching schedule job
+      try {
+        const db = await getDb();
+        if (db) {
+          await db
+            .update(scheduleJobs)
+            .set({ lastRunAt: new Date() })
+            .where(eq(scheduleJobs.scheduleCronTaskUid, user.taskUid));
+        }
+      } catch { /* non-critical */ }
+
+      const logId = await runScrapeJob("scheduled");
+      return res.json({ ok: true, logId });
+    } catch (err) {
+      const error = (err as Error).message;
+      console.error("[Scheduled Scrape] Error:", error);
+      return res.status(500).json({
+        error,
+        context: { url: req.url, taskUid: (err as Record<string, unknown>).taskUid },
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
   // tRPC API
   app.use(
     "/api/trpc",
