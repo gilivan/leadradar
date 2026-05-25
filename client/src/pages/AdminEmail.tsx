@@ -40,20 +40,14 @@ interface TemplateForm {
 
 const emptyTemplate: TemplateForm = {
   name: "",
-  subject: "Nueva oportunidad comercial detectada en LinkedIn",
-  bodyHtml: `<h2>Nueva oportunidad comercial</h2>
-<p>Se ha detectado una nueva oportunidad comercial en LinkedIn que podría ser de interés para El Grupo.</p>
-<hr/>
-<p><strong>Autor:</strong> {{authorName}}</p>
-<p><strong>Cargo:</strong> {{authorTitle}}</p>
-<p><strong>Empresa:</strong> {{authorCompany}}</p>
-<p><strong>Región:</strong> {{country}}, {{city}}</p>
-<p><strong>Relevancia:</strong> {{relevanceLabel}} ({{relevanceScore}}%)</p>
-<hr/>
-<blockquote>{{rawText}}</blockquote>
-<hr/>
-<p><a href="{{linkedinUrl}}">Ver publicación en LinkedIn</a></p>`,
-  bodyText: "Nueva oportunidad comercial detectada: {{rawText}}",
+  subject: "LeadRadar — {{count}} nuevas oportunidades comerciales detectadas",
+  bodyHtml: `<!-- Plantilla generada automáticamente por LeadRadar.
+     El sistema envía un correo consolidado con todas las oportunidades detectadas.
+     Las variables {{authorName}}, {{rawText}}, {{linkedinUrl}}, etc. se reemplazan
+     automáticamente por el motor de plantillas. -->
+<p>Este campo se usa como asunto del correo. El cuerpo HTML es generado
+automáticamente por LeadRadar con el diseño oficial de El Grupo.</p>`,
+  bodyText: "",
   supportImageUrl: "",
   isDefault: false,
 };

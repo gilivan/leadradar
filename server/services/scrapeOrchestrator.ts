@@ -11,7 +11,6 @@
 import { and, desc, eq, gte } from "drizzle-orm";
 import {
   appSettings,
-  emailTemplates,
   executionLogs,
   feedbackRules,
   opportunities,
@@ -20,7 +19,7 @@ import {
 import { getDb } from "../db";
 import { runLinkedInScraper } from "./apify";
 import { classifyPost } from "./classifier";
-import { sendBatchAlerts } from "./emailAlert";
+import { sendDigestAlert } from "./emailAlert";
 import type { EmailConfig } from "./emailAlert";
 
 export type TriggerType = "manual" | "scheduled";
@@ -95,13 +94,6 @@ export async function runScrapeJob(triggeredBy: TriggerType = "manual"): Promise
       alertsEnabled: settings["email_alerts_enabled"] === "true",
     };
 
-    // Load default email template
-    const [emailTemplate] = await db
-      .select()
-      .from(emailTemplates)
-      .where(eq(emailTemplates.isDefault, true))
-      .limit(1);
-
     // Process each profile
     for (const profile of profiles) {
       profilesRun.push(profile.id);
@@ -175,7 +167,7 @@ export async function runScrapeJob(triggeredBy: TriggerType = "manual"): Promise
 
           totalOpportunities++;
 
-          if (classification.relevanceLabel === "high" && emailConfig.alertsEnabled && emailTemplate) {
+          if (classification.relevanceLabel === "high" && emailConfig.alertsEnabled) {
             const oppId = (oppResult as { insertId: number }).insertId;
             const [savedOpp] = await db
               .select()
@@ -186,15 +178,9 @@ export async function runScrapeJob(triggeredBy: TriggerType = "manual"): Promise
           }
         }
 
-        // Send email alerts for high-relevance opportunities
-        if (highRelevanceOpps.length > 0 && emailTemplate) {
-          const safeTemplate: import('./emailAlert').EmailTemplate = {
-            subject: emailTemplate.subject,
-            bodyHtml: emailTemplate.bodyHtml,
-            bodyText: emailTemplate.bodyText ?? undefined,
-            supportImageUrl: emailTemplate.supportImageUrl ?? undefined,
-          };
-          const emailResult = await sendBatchAlerts(emailConfig, safeTemplate, highRelevanceOpps);
+        // Send consolidated digest email for high-relevance opportunities
+        if (highRelevanceOpps.length > 0) {
+          const emailResult = await sendDigestAlert(emailConfig, highRelevanceOpps);
           totalEmailsSent += emailResult.sent;
 
           // Mark as email sent
