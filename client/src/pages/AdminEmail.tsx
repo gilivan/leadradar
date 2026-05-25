@@ -17,6 +17,7 @@ import { trpc } from "@/lib/trpc";
 import {
   CheckCircle2,
   Edit2,
+  Eye,
   Loader2,
   Mail,
   Plus,
@@ -37,6 +38,87 @@ interface TemplateForm {
   supportImageUrl: string;
   isDefault: boolean;
 }
+
+// ── Static preview HTML (sample digest email) ───────────────────────────────
+const PREVIEW_HTML = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Vista previa</title></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f1f5f9;padding:24px 12px;">
+<tr><td align="center">
+<table width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;">
+  <!-- Header -->
+  <tr><td style="background:#1e293b;border-radius:12px 12px 0 0;padding:24px 28px 20px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td><table cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="background:#f0b429;border-radius:8px;width:34px;height:34px;text-align:center;vertical-align:middle;"><span style="font-size:18px;line-height:34px;">&#9889;</span></td>
+        <td style="padding-left:10px;vertical-align:middle;"><span style="font-size:20px;font-weight:700;color:#fff;letter-spacing:-0.3px;">LeadRadar</span><br/><span style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Inteligencia Comercial</span></td>
+      </tr></table></td>
+      <td align="right" style="vertical-align:middle;"><span style="font-size:11px;color:#64748b;font-style:italic;">El Grupo</span></td>
+    </tr></table>
+  </td></tr>
+  <!-- Banner -->
+  <tr><td style="background:#f0b429;padding:16px 28px;">
+    <p style="margin:0;font-size:14px;font-weight:700;color:#1e293b;">&#127919; 2 nuevas oportunidades comerciales detectadas</p>
+    <p style="margin:4px 0 0;font-size:11px;color:#78350f;">Domingo, 25 de mayo de 2025 &mdash; hora Colombia</p>
+  </td></tr>
+  <!-- Body -->
+  <tr><td style="background:#fff;padding:24px 28px 8px;">
+    <p style="margin:0 0 6px;font-size:14px;font-weight:600;color:#0f172a;">Hola, equipo de El Grupo &#128075;</p>
+    <p style="margin:0 0 20px;font-size:13px;color:#475569;line-height:1.7;">LeadRadar ha identificado <strong>2 nuevas oportunidades</strong> en LinkedIn que podr&iacute;an representar una apertura comercial para El Grupo. A continuaci&oacute;n encontrar&aacute;s el detalle de cada hallazgo.</p>
+    <!-- Card 1 -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;">
+      <tr><td style="background:#f8fafc;padding:12px 18px;border-bottom:1px solid #e2e8f0;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td><span style="font-size:13px;font-weight:600;color:#0f172a;">Mar&iacute;a Rodr&iacute;guez</span><span style="font-size:12px;color:#64748b;margin-left:6px;">&middot; Directora de Marketing</span><span style="font-size:12px;color:#64748b;margin-left:4px;">@ Empresa XYZ</span></td>
+          <td align="right"><span style="display:inline-block;padding:3px 10px;border-radius:20px;background:#16a34a;color:#fff;font-size:11px;font-weight:600;">Alta relevancia &middot; 92%</span></td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="background:#fff;padding:14px 18px;">
+        <p style="margin:0 0 8px;font-size:12px;color:#7c3aed;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">&#127919; busca agencia de publicidad</p>
+        <p style="margin:0 0 10px;font-size:13px;color:#334155;line-height:1.65;">&ldquo;Estamos buscando una agencia de publicidad con experiencia en campa&ntilde;as digitales para el sector retail. Si conocen alguna, les agradezco la recomendaci&oacute;n&hellip;&rdquo;</p>
+        <p style="margin:0 0 12px;font-size:12px;color:#94a3b8;">&#128205; Bogot&aacute;, Colombia &middot; &#128273; agencia publicidad</p>
+        <table cellpadding="0" cellspacing="0" border="0"><tr>
+          <td style="padding-right:8px;"><a href="#" style="display:inline-block;padding:7px 16px;background:#1e293b;color:#f0b429;text-decoration:none;border-radius:6px;font-size:12px;font-weight:600;">Ver en LeadRadar</a></td>
+          <td><a href="#" style="display:inline-block;padding:7px 16px;background:#0a66c2;color:#fff;text-decoration:none;border-radius:6px;font-size:12px;font-weight:600;">Ver en LinkedIn</a></td>
+        </tr></table>
+      </td></tr>
+    </table>
+    <!-- Card 2 -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;">
+      <tr><td style="background:#f8fafc;padding:12px 18px;border-bottom:1px solid #e2e8f0;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td><span style="font-size:13px;font-weight:600;color:#0f172a;">Carlos Mej&iacute;a</span><span style="font-size:12px;color:#64748b;margin-left:6px;">&middot; CEO</span><span style="font-size:12px;color:#64748b;margin-left:4px;">@ Startup ABC</span></td>
+          <td align="right"><span style="display:inline-block;padding:3px 10px;border-radius:20px;background:#d97706;color:#fff;font-size:11px;font-weight:600;">Media relevancia &middot; 74%</span></td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="background:#fff;padding:14px 18px;">
+        <p style="margin:0 0 8px;font-size:12px;color:#7c3aed;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">&#127919; necesita estrategia de contenidos</p>
+        <p style="margin:0 0 10px;font-size:13px;color:#334155;line-height:1.65;">&ldquo;&iquest;Alguien me puede recomendar una agencia de marketing de contenidos? Necesitamos reforzar nuestra presencia en redes sociales&hellip;&rdquo;</p>
+        <p style="margin:0 0 12px;font-size:12px;color:#94a3b8;">&#128205; Medell&iacute;n, Colombia &middot; &#128273; marketing contenidos</p>
+        <table cellpadding="0" cellspacing="0" border="0"><tr>
+          <td style="padding-right:8px;"><a href="#" style="display:inline-block;padding:7px 16px;background:#1e293b;color:#f0b429;text-decoration:none;border-radius:6px;font-size:12px;font-weight:600;">Ver en LeadRadar</a></td>
+          <td><a href="#" style="display:inline-block;padding:7px 16px;background:#0a66c2;color:#fff;text-decoration:none;border-radius:6px;font-size:12px;font-weight:600;">Ver en LinkedIn</a></td>
+        </tr></table>
+      </td></tr>
+    </table>
+  </td></tr>
+  <!-- CTA -->
+  <tr><td style="background:#fff;padding:8px 28px 28px;text-align:center;">
+    <a href="#" style="display:inline-block;padding:12px 28px;background:#1e293b;color:#f0b429;text-decoration:none;border-radius:8px;font-size:13px;font-weight:700;letter-spacing:0.02em;">Ver todas las oportunidades en LeadRadar &rarr;</a>
+  </td></tr>
+  <!-- Divider -->
+  <tr><td style="background:#fff;padding:0 28px;"><hr style="border:none;border-top:1px solid #e2e8f0;margin:0;"/></td></tr>
+  <!-- Footer -->
+  <tr><td style="background:#fff;border-radius:0 0 12px 12px;padding:18px 28px 22px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td><p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.6;">No responder este correo, dado que se ha generado de forma autom&aacute;tica por <strong>LeadRadar</strong>.</p><p style="margin:5px 0 0;font-size:11px;color:#cbd5e1;">Powered by LeadRadar &middot; <a href="https://elgrupo.com.co" style="color:#94a3b8;">El Grupo</a></p></td>
+      <td align="right" style="vertical-align:bottom;"><span style="font-size:11px;color:#94a3b8;font-style:italic;">El Grupo</span></td>
+    </tr></table>
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
 
 const emptyTemplate: TemplateForm = {
   name: "",
@@ -64,6 +146,7 @@ export default function AdminEmail() {
   const [templateOpen, setTemplateOpen] = useState(false);
   const [editTemplateId, setEditTemplateId] = useState<number | null>(null);
   const [templateForm, setTemplateForm] = useState<TemplateForm>(emptyTemplate);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const settingsQuery = trpc.admin.getSettings.useQuery();
   const templatesQuery = trpc.admin.getEmailTemplates.useQuery();
@@ -282,7 +365,7 @@ export default function AdminEmail() {
                   <div>
                     <p className="text-sm font-medium text-foreground">Alertas habilitadas</p>
                     <p className="text-xs text-muted-foreground">
-                      Cuando está activo, se envía un correo por cada oportunidad que supere el score mínimo.
+                      Cuando está activo, se envía un correo consolidado con todas las oportunidades de alta relevancia detectadas en cada ejecución.
                     </p>
                   </div>
                   <Switch checked={alertsEnabled} onCheckedChange={setAlertsEnabled} />
@@ -348,6 +431,15 @@ export default function AdminEmail() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="w-7 h-7 text-muted-foreground hover:text-blue-500"
+                            title="Vista previa del correo"
+                            onClick={() => setPreviewOpen(true)}
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="w-7 h-7 text-muted-foreground hover:text-foreground"
                             onClick={() => openEditTemplate(t)}
                           >
@@ -373,6 +465,29 @@ export default function AdminEmail() {
       </div>
 
       {/* ── Template dialog ─────────────────────────────────────────────── */}
+      {/* ── Email preview dialog ──────────────────────────────────────── */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-4 h-4" /> Vista previa del correo de notificación
+            </DialogTitle>
+          </DialogHeader>
+          <div className="rounded-lg overflow-hidden border border-border">
+            <iframe
+              title="Email preview"
+              srcDoc={PREVIEW_HTML}
+              className="w-full"
+              style={{ height: "600px", border: "none" }}
+              sandbox="allow-same-origin"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewOpen(false)}>Cerrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
