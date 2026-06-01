@@ -8,24 +8,66 @@ import App from "./App";
 import { getLoginUrl } from "./const";
 import "./index.css";
 
-const queryClient = new QueryClient();
+// Retry configuration: when the sandbox proxy is waking up it returns HTML
+// instead of JSON (SESSION_DNS_FAILED). We detect this and retry automatically.
+const MAX_RETRIES = 4;
+const RETRY_DELAY_MS = 2500;
+
+async function fetchWithRetry(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+  attempt = 0
+): Promise<Response> {
+  const res = await globalThis.fetch(input, { ...(init ?? {}), credentials: "include" });
+
+  // If the proxy returns a non-JSON content-type (HTML error page), retry
+  const contentType = res.headers.get("content-type") ?? "";
+  const isProxyError =
+    !contentType.includes("application/json") &&
+    (res.status === 502 || res.status === 503 || res.status === 504 || res.status === 0);
+
+  if (isProxyError && attempt < MAX_RETRIES) {
+    await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * (attempt + 1)));
+    return fetchWithRetry(input, init, attempt + 1);
+  }
+
+  return res;
+}
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Retry up to 3 times on error with exponential backoff
+      retry: (failureCount, error) => {
+        if (error instanceof TRPCClientError) {
+          // Don't retry auth errors
+          if (error.message === UNAUTHED_ERR_MSG) return false;
+          // Retry JSON parse errors (proxy waking up) up to 3 times
+          if (error.message?.includes("is not valid JSON")) return failureCount < 3;
+        }
+        return failureCount < 2;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    },
+  },
+});
 
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
   if (typeof window === "undefined") return;
-
-  const isUnauthorized = error.message === UNAUTHED_ERR_MSG;
-
-  if (!isUnauthorized) return;
-
-  window.location.href = getLoginUrl();
+  if (error.message === UNAUTHED_ERR_MSG) {
+    window.location.href = getLoginUrl();
+  }
 };
 
 queryClient.getQueryCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.query.state.error;
     redirectToLoginIfUnauthorized(error);
-    console.error("[API Query Error]", error);
+    // Only log if it's not a retryable proxy error
+    if (!(error instanceof TRPCClientError && error.message?.includes("is not valid JSON"))) {
+      console.error("[API Query Error]", error);
+    }
   }
 });
 
@@ -42,12 +84,7 @@ const trpcClient = trpc.createClient({
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
-      fetch(input, init) {
-        return globalThis.fetch(input, {
-          ...(init ?? {}),
-          credentials: "include",
-        });
-      },
+      fetch: fetchWithRetry,
     }),
   ],
 });
