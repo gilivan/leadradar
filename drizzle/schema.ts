@@ -44,6 +44,15 @@ export const searchProfiles = mysqlTable("search_profiles", {
   country: varchar("country", { length: 100 }),
   city: varchar("city", { length: 100 }),
   keywords: json("keywords").$type<string[]>().notNull(),
+  description: text("description"),
+  expandedContext: json("expandedContext").$type<{
+    alternativeRoles: string[];
+    searchPhrases: string[];
+    industryKeywords: string[];
+    allQueries: string[];
+    expandedAt: string;
+  } | null>(),
+  useExpandedContext: boolean("useExpandedContext").default(true).notNull(),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

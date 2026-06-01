@@ -20,6 +20,7 @@ import { getDb } from "../db";
 import { runLinkedInScraper } from "./apify";
 import { classifyPost } from "./classifier";
 import { sendDigestAlert } from "./emailAlert";
+import { expandSearchContext } from "./contextExpander";
 import type { EmailConfig } from "./emailAlert";
 
 export type TriggerType = "manual" | "scheduled";
@@ -97,23 +98,80 @@ export async function runScrapeJob(triggeredBy: TriggerType = "manual"): Promise
     // Process each profile
     for (const profile of profiles) {
       profilesRun.push(profile.id);
-      const keywords = (profile.keywords as string[]) || [];
+      const baseKeywords = (profile.keywords as string[]) || [];
+      const useExpanded = profile.useExpandedContext !== false;
+
+      // Determine the queries to use: expanded context or base keywords
+      let queries: string[] = baseKeywords;
+      let expandedContextData = profile.expandedContext as {
+        allQueries: string[];
+        alternativeRoles: string[];
+        searchPhrases: string[];
+        industryKeywords: string[];
+        expandedAt: string;
+      } | null;
+
+      if (useExpanded) {
+        if (!expandedContextData) {
+          // Auto-expand if no context exists yet
+          try {
+            expandedContextData = await expandSearchContext(
+              profile.name,
+              baseKeywords,
+              profile.country ?? undefined,
+              profile.city ?? undefined
+            );
+            // Persist the expanded context for future runs
+            await db
+              .update(searchProfiles)
+              .set({ expandedContext: expandedContextData })
+              .where(eq(searchProfiles.id, profile.id));
+          } catch (expandErr) {
+            console.warn("[Orchestrator] Context expansion failed, using base keywords:", expandErr);
+          }
+        }
+        if (expandedContextData?.allQueries?.length) {
+          queries = expandedContextData.allQueries;
+        }
+      }
 
       logDetails.push({
         profileId: profile.id,
         profileName: profile.name,
         status: "started",
+        queriesUsed: queries.length,
+        expandedContext: useExpanded,
         timestamp: new Date().toISOString(),
       });
 
       try {
-        // Run Apify scraper
-        const posts = await runLinkedInScraper(apifyToken, actorId, {
-          queries: keywords,
-          country: profile.country || undefined,
-          city: profile.city || undefined,
-          maxResults: 50,
-        });
+        // Run Apify scraper with expanded queries
+        // Split into batches of 5 queries to avoid Apify limits on free plans
+        const BATCH_SIZE = 5;
+        const allPosts: Awaited<ReturnType<typeof runLinkedInScraper>> = [];
+        const seenUrls = new Set<string>();
+
+        for (let i = 0; i < queries.length; i += BATCH_SIZE) {
+          const batch = queries.slice(i, i + BATCH_SIZE);
+          try {
+            const batchPosts = await runLinkedInScraper(apifyToken, actorId, {
+              queries: batch,
+              country: profile.country || undefined,
+              city: profile.city || undefined,
+              maxResults: Math.ceil(100 / Math.ceil(queries.length / BATCH_SIZE)),
+            });
+            // Deduplicate by URL across batches
+            for (const p of batchPosts) {
+              if (!p.url || !seenUrls.has(p.url)) {
+                if (p.url) seenUrls.add(p.url);
+                allPosts.push(p);
+              }
+            }
+          } catch (batchErr) {
+            console.warn(`[Orchestrator] Batch ${i}-${i + BATCH_SIZE} failed:`, batchErr);
+          }
+        }
+        const posts = allPosts;
 
         totalFound += posts.length;
 
@@ -161,7 +219,7 @@ export async function runScrapeJob(triggeredBy: TriggerType = "manual"): Promise
             intentCategory: classification.intentCategory,
             country: profile.country || null,
             city: profile.city || null,
-            searchKeyword: keywords[0] || null,
+            searchKeyword: queries[0] || null,
             status: "new",
           });
 

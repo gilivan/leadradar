@@ -22,6 +22,7 @@ import {
 import { runScrapeJob } from "../services/scrapeOrchestrator";
 import { validateApifyToken } from "../services/apify";
 import { testEmailConnection } from "../services/emailAlert";
+import { expandSearchContext } from "../services/contextExpander";
 import { createHeartbeatJob, deleteHeartbeatJob, updateHeartbeatJob } from "../_core/heartbeat";
 import { protectedProcedure, router } from "../_core/trpc";
 import { COOKIE_NAME } from "../../shared/const";
@@ -86,10 +87,12 @@ export const adminRouter = router({
     .input(
       z.object({
         name: z.string().min(1),
+        description: z.string().optional(),
         country: z.string().optional(),
         city: z.string().optional(),
         keywords: z.array(z.string()),
         isActive: z.boolean().default(true),
+        useExpandedContext: z.boolean().default(true),
       })
     )
     .mutation(async ({ input }) => {
@@ -97,10 +100,12 @@ export const adminRouter = router({
       if (!db) throw new Error("DB not available");
       const [result] = await db.insert(searchProfiles).values({
         name: input.name,
+        description: input.description ?? null,
         country: input.country ?? null,
         city: input.city ?? null,
         keywords: input.keywords,
         isActive: input.isActive,
+        useExpandedContext: input.useExpandedContext,
       });
       return { id: (result as { insertId: number }).insertId };
     }),
@@ -110,10 +115,12 @@ export const adminRouter = router({
       z.object({
         id: z.number(),
         name: z.string().min(1).optional(),
+        description: z.string().optional(),
         country: z.string().optional(),
         city: z.string().optional(),
         keywords: z.array(z.string()).optional(),
         isActive: z.boolean().optional(),
+        useExpandedContext: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -130,6 +137,47 @@ export const adminRouter = router({
       const db = await getDb();
       if (!db) throw new Error("DB not available");
       await db.delete(searchProfiles).where(eq(searchProfiles.id, input.id));
+      return { success: true };
+    }),
+
+  // ── Context Expansion (AI) ──────────────────────────────────────────────────
+  expandProfileContext: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("DB not available");
+
+      const [profile] = await db
+        .select()
+        .from(searchProfiles)
+        .where(eq(searchProfiles.id, input.id))
+        .limit(1);
+      if (!profile) throw new Error("Perfil no encontrado");
+
+      const expanded = await expandSearchContext(
+        profile.name,
+        (profile.keywords as string[]) || [],
+        profile.country ?? undefined,
+        profile.city ?? undefined
+      );
+
+      await db
+        .update(searchProfiles)
+        .set({ expandedContext: expanded })
+        .where(eq(searchProfiles.id, input.id));
+
+      return expanded;
+    }),
+
+  clearProfileContext: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("DB not available");
+      await db
+        .update(searchProfiles)
+        .set({ expandedContext: null })
+        .where(eq(searchProfiles.id, input.id));
       return { success: true };
     }),
 
