@@ -88,7 +88,7 @@ const BASE_NEGATIVE_SIGNALS = [
 export async function classifyPost(
   post: LinkedInPost,
   feedbackRules: FeedbackRule[] = [],
-  minScore: number = 0.5
+  minScore: number = 0.3
 ): Promise<ClassificationResult> {
   const text = post.text.toLowerCase();
 
@@ -96,7 +96,8 @@ export async function classifyPost(
   const preScore = computePreScore(text, feedbackRules);
 
   // If clearly irrelevant by keywords, skip LLM
-  if (preScore < -0.3) {
+  // Threshold lowered to -0.5 to avoid discarding posts with implicit intent signals
+  if (preScore < -0.5) {
     return {
       relevanceScore: 0,
       relevanceLabel: "irrelevant",

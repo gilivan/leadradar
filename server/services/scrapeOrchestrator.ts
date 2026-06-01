@@ -54,7 +54,7 @@ export async function runScrapeJob(triggeredBy: TriggerType = "manual"): Promise
 
     const apifyToken = settings["apify_token"] || "";
     const actorId = settings["apify_actor_id"] || "harvestapi/linkedin-post-search";
-    const minScore = parseFloat(settings["min_relevance_score"] || "0.6");
+    const minScore = parseFloat(settings["min_relevance_score"] || "0.3");
 
     if (!apifyToken) {
       throw new Error("API token de Apify no configurado. Ve a Configuración > Apify para agregarlo.");
@@ -195,7 +195,8 @@ export async function runScrapeJob(triggeredBy: TriggerType = "manual"): Promise
         logDetails.push({
           profileId: profile.id,
           status: "completed",
-          opportunitiesFound: highRelevanceOpps.length,
+          opportunitiesFound: totalOpportunities,
+          highRelevanceCount: highRelevanceOpps.length,
           timestamp: new Date().toISOString(),
         });
       } catch (profileErr) {
