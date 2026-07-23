@@ -66,8 +66,8 @@
 - [x] Test vitest: logout de autenticación
 
 ## Mejoras UI — Julio 2026
-- [ ] Ordenamiento en página de oportunidades: por fecha más reciente, por relevancia (score) y por región
-- [ ] Badge "Nuevo" en oportunidades cargadas en la última ejecución
+- [x] Ordenamiento en página de oportunidades: por fecha más reciente, por relevancia (score) y por región
+- [x] Badge "Nuevo" en oportunidades cargadas en la última ejecución
 
 ## Pendiente (post-entrega — requiere configuración del usuario)
 - [ ] Configurar API token de Apify desde el panel admin

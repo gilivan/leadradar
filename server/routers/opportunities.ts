@@ -51,14 +51,13 @@ export const opportunitiesRouter = router({
   getLastExecutionId: protectedProcedure.query(async () => {
     const db = await getDb();
     if (!db) return null;
-    const { executionLogs } = await import("../../drizzle/schema");
-    const [last] = await db
-      .select({ id: executionLogs.id })
-      .from(executionLogs)
-      .where(eq(executionLogs.status, "completed"))
-      .orderBy(desc(executionLogs.id))
-      .limit(1);
-    return last?.id ?? null;
+    // Use the MAX executionLogId present in opportunities so that even runs
+    // that ended in error (e.g. SMTP failure) but did save results are included.
+    const { max } = await import("drizzle-orm");
+    const [row] = await db
+      .select({ maxId: max(opportunities.executionLogId) })
+      .from(opportunities);
+    return row?.maxId ?? null;
   }),
 
   updateStatus: protectedProcedure
