@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, like, lte, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, like, lte, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   appSettings,
@@ -122,6 +122,8 @@ export interface OpportunityFilters {
   userFeedback?: string;
   page?: number;
   pageSize?: number;
+  sortBy?: "date" | "relevance" | "region";
+  lastExecutionId?: number;
 }
 
 export async function getOpportunities(filters: OpportunityFilters = {}) {
@@ -143,11 +145,19 @@ export async function getOpportunities(filters: OpportunityFilters = {}) {
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
+  const sortBy = filters.sortBy ?? "date";
+  const orderClause =
+    sortBy === "relevance"
+      ? [desc(opportunities.relevanceScore), desc(opportunities.createdAt)]
+      : sortBy === "region"
+      ? [asc(opportunities.country), asc(opportunities.city), desc(opportunities.createdAt)]
+      : [desc(opportunities.createdAt), desc(opportunities.relevanceScore)];
+
   const items = await db
     .select()
     .from(opportunities)
     .where(where)
-    .orderBy(desc(opportunities.relevanceScore), desc(opportunities.createdAt))
+    .orderBy(...orderClause)
     .limit(pageSize)
     .offset(offset);
 

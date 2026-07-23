@@ -27,6 +27,7 @@ export const opportunitiesRouter = router({
         relevanceLabel: z.string().optional(),
         status: z.string().optional(),
         userFeedback: z.string().optional(),
+        sortBy: z.enum(["date", "relevance", "region"]).optional(),
       })
     )
     .query(async ({ input }) => {
@@ -45,6 +46,19 @@ export const opportunitiesRouter = router({
 
   dashboardStats: protectedProcedure.query(async () => {
     return getDashboardStats();
+  }),
+
+  getLastExecutionId: protectedProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return null;
+    const { executionLogs } = await import("../../drizzle/schema");
+    const [last] = await db
+      .select({ id: executionLogs.id })
+      .from(executionLogs)
+      .where(eq(executionLogs.status, "completed"))
+      .orderBy(desc(executionLogs.id))
+      .limit(1);
+    return last?.id ?? null;
   }),
 
   updateStatus: protectedProcedure
