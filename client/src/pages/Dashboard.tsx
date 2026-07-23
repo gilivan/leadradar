@@ -51,8 +51,9 @@ export default function Dashboard() {
 
   const recentQuery = trpc.opportunities.list.useQuery({
     page: 1,
-    pageSize: 5,
-    status: "new",
+    pageSize: 8,
+    relevanceLabel: "high",
+    sortBy: "date",
   });
 
   const logsQuery = trpc.admin.getExecutionLogs.useQuery({ limit: 3 });
@@ -174,7 +175,13 @@ export default function Dashboard() {
           <div className="xl:col-span-2">
             <Card className="border border-border shadow-sm">
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                <CardTitle className="text-base font-semibold">Oportunidades recientes</CardTitle>
+                <div>
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                    Oportunidades de alta relevancia
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">Más recientes primero</p>
+                </div>
                 <Link href="/opportunities">
                   <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground hover:text-foreground">
                     Ver todas <ArrowRight className="w-3 h-3" />
@@ -197,9 +204,9 @@ export default function Dashboard() {
                 ) : recentQuery.data?.items.length === 0 ? (
                   <div className="px-6 py-12 text-center">
                     <Target className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
-                    <p className="text-sm text-muted-foreground">No hay oportunidades nuevas.</p>
+                    <p className="text-sm text-muted-foreground">Sin oportunidades de alta relevancia aún.</p>
                     <p className="text-xs text-muted-foreground/70 mt-1">
-                      Ejecuta el scraper para detectar oportunidades en LinkedIn.
+                      Ejecuta el scraper para detectar oportunidades con score ≥ 75%.
                     </p>
                   </div>
                 ) : (
