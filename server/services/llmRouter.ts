@@ -33,7 +33,7 @@ const DEFAULT_MODELS: Record<LLMProvider, string> = {
   manus: "default",
   openai: "gpt-4o-mini",
   anthropic: "claude-3-5-haiku-20241022",
-  gemini: "gemini-2.5-flash-lite",
+  gemini: "gemini-2.5-flash",
   groq: "llama-3.3-70b-versatile",
 };
 

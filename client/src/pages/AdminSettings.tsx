@@ -50,9 +50,9 @@ const PROVIDER_INFO: Record<
   gemini: {
     label: "Google Gemini",
     placeholder: "AIza…",
-    models: ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"],
+    models: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-3-flash-preview", "gemini-3.1-flash-lite"],
     docsUrl: "https://aistudio.google.com/app/apikey",
-    hint: "Obtén tu API key en Google AI Studio → Get API Key. Flash-Lite es el más económico.",
+    hint: "Obtén tu API key en Google AI Studio → Get API Key. Flash es el modelo recomendado (tier gratuito).",
   },
   groq: {
     label: "Groq (Llama — muy rápido)",
