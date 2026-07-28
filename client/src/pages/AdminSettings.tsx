@@ -50,14 +50,14 @@ const PROVIDER_INFO: Record<
   gemini: {
     label: "Google Gemini",
     placeholder: "AIza…",
-    models: ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"],
+    models: ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"],
     docsUrl: "https://aistudio.google.com/app/apikey",
-    hint: "Obtén tu API key en Google AI Studio → Get API Key.",
+    hint: "Obtén tu API key en Google AI Studio → Get API Key. Flash-Lite es el más económico.",
   },
   groq: {
-    label: "Groq (Llama / Mixtral — muy rápido)",
+    label: "Groq (Llama — muy rápido)",
     placeholder: "gsk_…",
-    models: ["llama-3.1-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
+    models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "openai/gpt-oss-20b"],
     docsUrl: "https://console.groq.com/keys",
     hint: "Obtén tu API key en console.groq.com → API Keys. Tier gratuito disponible.",
   },

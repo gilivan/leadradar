@@ -28,13 +28,13 @@ export async function getLLMConfig(): Promise<LLMConfig> {
   return { provider, apiKey, model };
 }
 
-/** Default models per provider */
+/** Default models per provider — updated July 2026 */
 const DEFAULT_MODELS: Record<LLMProvider, string> = {
   manus: "default",
   openai: "gpt-4o-mini",
   anthropic: "claude-3-5-haiku-20241022",
-  gemini: "gemini-1.5-flash",
-  groq: "llama-3.1-70b-versatile",
+  gemini: "gemini-2.5-flash-lite",
+  groq: "llama-3.3-70b-versatile",
 };
 
 /**
@@ -193,7 +193,7 @@ async function invokeGemini(params: {
     },
   };
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${params.model}:generateContent?key=${params.apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1/models/${params.model}:generateContent?key=${params.apiKey}`;
 
   const res = await fetch(url, {
     method: "POST",
