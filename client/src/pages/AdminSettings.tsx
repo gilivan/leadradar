@@ -3,10 +3,65 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
-import { CheckCircle2, Eye, EyeOff, Loader2, Save, ShieldCheck, Sparkles, XCircle } from "lucide-react";
+import {
+  Brain,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Loader2,
+  Save,
+  ShieldCheck,
+  Sparkles,
+  XCircle,
+  Zap,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+
+type LLMProvider = "manus" | "openai" | "anthropic" | "gemini" | "groq";
+
+const PROVIDER_INFO: Record<
+  LLMProvider,
+  { label: string; placeholder: string; models: string[]; docsUrl: string; hint: string }
+> = {
+  manus: {
+    label: "Manus (interno, por defecto)",
+    placeholder: "No se requiere API key",
+    models: [],
+    docsUrl: "",
+    hint: "Usa el LLM interno de la plataforma Manus. No requiere configuración adicional.",
+  },
+  openai: {
+    label: "OpenAI (GPT-4o / GPT-4o-mini)",
+    placeholder: "sk-proj-…",
+    models: ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"],
+    docsUrl: "https://platform.openai.com/api-keys",
+    hint: "Obtén tu API key en platform.openai.com → API Keys.",
+  },
+  anthropic: {
+    label: "Anthropic Claude",
+    placeholder: "sk-ant-…",
+    models: ["claude-3-5-haiku-20241022", "claude-3-5-sonnet-20241022", "claude-3-opus-20240229"],
+    docsUrl: "https://console.anthropic.com/settings/keys",
+    hint: "Obtén tu API key en console.anthropic.com → API Keys.",
+  },
+  gemini: {
+    label: "Google Gemini",
+    placeholder: "AIza…",
+    models: ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"],
+    docsUrl: "https://aistudio.google.com/app/apikey",
+    hint: "Obtén tu API key en Google AI Studio → Get API Key.",
+  },
+  groq: {
+    label: "Groq (Llama / Mixtral — muy rápido)",
+    placeholder: "gsk_…",
+    models: ["llama-3.1-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
+    docsUrl: "https://console.groq.com/keys",
+    hint: "Obtén tu API key en console.groq.com → API Keys. Tier gratuito disponible.",
+  },
+};
 
 export default function AdminSettings() {
   const settingsQuery = trpc.admin.getSettings.useQuery();
@@ -21,24 +76,42 @@ export default function AdminSettings() {
     },
     onError: (e) => toast.error(e.message),
   });
+  const saveLLMMutation = trpc.admin.saveLLMConfig.useMutation({
+    onSuccess: () => toast.success("Configuración de IA guardada"),
+    onError: (e) => toast.error(e.message),
+  });
+  const testLLMMutation = trpc.admin.testLLMConnection.useMutation({
+    onSuccess: (data) => toast.success(data.message),
+    onError: (e) => toast.error(`Error: ${e.message}`),
+  });
 
+  // Apify / classification state
   const [apifyToken, setApifyToken] = useState("");
   const [showToken, setShowToken] = useState(false);
-  const [minScore, setMinScore] = useState("0.5");
+  const [minScore, setMinScore] = useState("0.3");
   const [maxResults, setMaxResults] = useState("50");
   const [apifyActorId, setApifyActorId] = useState("apify/linkedin-post-search-scraper");
 
+  // LLM state
+  const [llmProvider, setLlmProvider] = useState<LLMProvider>("manus");
+  const [llmApiKey, setLlmApiKey] = useState("");
+  const [llmModel, setLlmModel] = useState("");
+  const [showLlmKey, setShowLlmKey] = useState(false);
+
   useEffect(() => {
     if (settingsQuery.data) {
-      const map = Object.fromEntries(settingsQuery.data.map((s) => [s.key, s.value]));
+      const map = Object.fromEntries(settingsQuery.data.map((s) => [s.key, s.value ?? ""]));
       setApifyToken(map["apify_token"] ?? "");
-      setMinScore(map["min_relevance_score"] ?? "0.5");
+      setMinScore(map["min_relevance_score"] ?? "0.3");
       setMaxResults(map["max_results_per_run"] ?? "50");
       setApifyActorId(map["apify_actor_id"] ?? "apify/linkedin-post-search-scraper");
+      setLlmProvider((map["llm_provider"] as LLMProvider) ?? "manus");
+      setLlmApiKey(map["llm_api_key"] ?? "");
+      setLlmModel(map["llm_model"] ?? "");
     }
   }, [settingsQuery.data]);
 
-  const handleSave = () => {
+  const handleSaveApify = () => {
     updateMutation.mutate({
       settings: [
         { key: "apify_token", value: apifyToken },
@@ -49,19 +122,24 @@ export default function AdminSettings() {
     });
   };
 
+  const handleSaveLLM = () => {
+    saveLLMMutation.mutate({
+      provider: llmProvider,
+      apiKey: llmApiKey || undefined,
+      model: llmModel || undefined,
+    });
+  };
+
+  const providerInfo = PROVIDER_INFO[llmProvider];
+
   return (
     <AppLayout
       title="Configuración general"
-      subtitle="Credenciales de Apify y parámetros del motor de scraping"
-      actions={
-        <Button onClick={handleSave} disabled={updateMutation.isPending} className="gap-2">
-          {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Guardar cambios
-        </Button>
-      }
+      subtitle="Credenciales de Apify, motor de scraping e inteligencia artificial"
     >
       <div className="max-w-2xl space-y-6">
-        {/* Apify */}
+
+        {/* ── Apify ──────────────────────────────────────────────────────── */}
         <Card className="border border-border shadow-sm">
           <CardHeader>
             <div className="flex items-center gap-3">
@@ -77,7 +155,6 @@ export default function AdminSettings() {
             </div>
           </CardHeader>
           <CardContent className="space-y-5">
-            {/* How to get token */}
             <div className="rounded-lg bg-muted/50 border border-border p-4 space-y-2">
               <p className="text-xs font-semibold text-foreground flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-accent" />
@@ -151,18 +228,7 @@ export default function AdminSettings() {
                 </a>
               </p>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Classification params */}
-        <Card className="border border-border shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base">Parámetros de clasificación</CardTitle>
-            <CardDescription className="text-xs">
-              Controla el umbral de relevancia y el volumen de resultados por ejecución.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Score mínimo de relevancia</Label>
@@ -176,7 +242,7 @@ export default function AdminSettings() {
                   className="text-sm"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Valor entre 0 y 1. Oportunidades por debajo de este umbral se descartan automáticamente.
+                  Entre 0 y 1. Oportunidades por debajo se descartan.
                 </p>
               </div>
               <div className="space-y-2">
@@ -190,12 +256,173 @@ export default function AdminSettings() {
                   className="text-sm"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Límite de publicaciones a procesar por cada corrida del scraper.
+                  Límite de publicaciones a procesar por corrida.
                 </p>
               </div>
             </div>
+
+            <div className="flex justify-end">
+              <Button onClick={handleSaveApify} disabled={updateMutation.isPending} className="gap-2">
+                {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Guardar configuración Apify
+              </Button>
+            </div>
           </CardContent>
         </Card>
+
+        {/* ── LLM Provider ───────────────────────────────────────────────── */}
+        <Card className="border border-border shadow-sm">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Brain className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Proveedor de Inteligencia Artificial</CardTitle>
+                <CardDescription className="text-xs mt-0.5">
+                  Selecciona el modelo de lenguaje que clasificará oportunidades y expandirá contextos de búsqueda.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+
+            {/* Provider selector */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Proveedor LLM</Label>
+              <Select value={llmProvider} onValueChange={(v) => {
+                setLlmProvider(v as LLMProvider);
+                setLlmModel("");
+                setLlmApiKey("");
+              }}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(PROVIDER_INFO) as LLMProvider[]).map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {PROVIDER_INFO[p].label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">{providerInfo.hint}</p>
+            </div>
+
+            {/* API Key — hidden for Manus */}
+            {llmProvider !== "manus" && (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">API Key</Label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        type={showLlmKey ? "text" : "password"}
+                        value={llmApiKey}
+                        onChange={(e) => setLlmApiKey(e.target.value)}
+                        placeholder={providerInfo.placeholder}
+                        className="pr-10 font-mono text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowLlmKey(!showLlmKey)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showLlmKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {providerInfo.docsUrl && (
+                      <a
+                        href={providerInfo.docsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0"
+                      >
+                        <Button variant="outline" type="button" className="gap-2">
+                          <ShieldCheck className="w-4 h-4" />
+                          Obtener key
+                        </Button>
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Model selector */}
+                {providerInfo.models.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Modelo</Label>
+                    <Select
+                      value={llmModel || providerInfo.models[0]}
+                      onValueChange={setLlmModel}
+                    >
+                      <SelectTrigger className="text-sm font-mono">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {providerInfo.models.map((m) => (
+                          <SelectItem key={m} value={m} className="font-mono text-sm">
+                            {m}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Modelo recomendado para clasificación: <strong>{providerInfo.models[0]}</strong> (mejor relación costo/precisión).
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Manus default notice */}
+            {llmProvider === "manus" && (
+              <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
+                <p className="text-xs text-muted-foreground flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                  <span>
+                    El LLM interno de Manus está activo. No se requiere API key ni configuración adicional.
+                    Los tres servicios de IA (clasificador, expansor de contexto y extractor de señales de feedback)
+                    usarán este modelo automáticamente.
+                  </span>
+                </p>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center gap-3 justify-end pt-1">
+              <Button
+                variant="outline"
+                onClick={() => testLLMMutation.mutate()}
+                disabled={testLLMMutation.isPending || (llmProvider !== "manus" && !llmApiKey)}
+                className="gap-2"
+              >
+                {testLLMMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : testLLMMutation.isSuccess ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                ) : testLLMMutation.isError ? (
+                  <XCircle className="w-4 h-4 text-destructive" />
+                ) : (
+                  <Zap className="w-4 h-4" />
+                )}
+                Probar conexión
+              </Button>
+              <Button
+                onClick={handleSaveLLM}
+                disabled={saveLLMMutation.isPending}
+                className="gap-2"
+              >
+                {saveLLMMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                Guardar configuración IA
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
       </div>
     </AppLayout>
   );

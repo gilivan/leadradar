@@ -5,7 +5,7 @@
  * LinkedIn scraping coverage.
  */
 
-import { invokeLLM } from "../_core/llm";
+import { invokeConfiguredLLM } from "./llmRouter";
 
 export interface ExpandedContext {
   /** Original profile name */
@@ -61,7 +61,7 @@ Responde ÚNICAMENTE con JSON válido:
 }`;
 
   try {
-    const response = await invokeLLM({
+    const response = await invokeConfiguredLLM({
       messages: [
         {
           role: "system",

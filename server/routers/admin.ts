@@ -22,6 +22,7 @@ import {
 import { runScrapeJob } from "../services/scrapeOrchestrator";
 import { validateApifyToken } from "../services/apify";
 import { testEmailConnection } from "../services/emailAlert";
+import { testLLMConnection } from "../services/llmRouter";
 import { expandSearchContext } from "../services/contextExpander";
 import { createHeartbeatJob, deleteHeartbeatJob, updateHeartbeatJob } from "../_core/heartbeat";
 import { protectedProcedure, router } from "../_core/trpc";
@@ -77,6 +78,26 @@ export const adminRouter = router({
         alertsEnabled: false,
       });
     }),
+
+  // ── LLM Configuration ────────────────────────────────────────────────────────
+  saveLLMConfig: protectedProcedure
+    .input(
+      z.object({
+        provider: z.enum(["manus", "openai", "anthropic", "gemini", "groq"]),
+        apiKey: z.string().optional(),
+        model: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      await upsertSetting("llm_provider", input.provider);
+      if (input.apiKey !== undefined) await upsertSetting("llm_api_key", input.apiKey);
+      if (input.model !== undefined) await upsertSetting("llm_model", input.model);
+      return { success: true };
+    }),
+
+  testLLMConnection: protectedProcedure.mutation(async () => {
+    return testLLMConnection();
+  }),
 
   // ── Search Profiles ─────────────────────────────────────────────────────────
   getSearchProfiles: protectedProcedure.query(async () => {

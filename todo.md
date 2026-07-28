@@ -75,3 +75,8 @@
 - [ ] Crear perfiles de búsqueda con keywords relevantes
 - [ ] Configurar programaciones de ejecución (hora Colombia)
 - [ ] Publicar la aplicación desde el botón Publish
+
+## LLM Configurable — Julio 2026
+- [ ] Servicio LLM unificado que enruta al proveedor configurado (Manus, OpenAI, Anthropic, Gemini, Groq)
+- [ ] Bloque de configuración de proveedor LLM en panel Admin → Configuración General
+- [ ] Prueba de conexión al proveedor LLM desde el panel admin

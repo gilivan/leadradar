@@ -3,7 +3,7 @@
  * Incorporates learned feedback rules to progressively improve accuracy.
  */
 
-import { invokeLLM } from "../_core/llm";
+import { invokeConfiguredLLM } from "./llmRouter";
 import type { LinkedInPost } from "./apify";
 
 export interface ClassificationResult {
@@ -155,7 +155,7 @@ Responde ÚNICAMENTE con un JSON válido con esta estructura exacta:
 }`;
 
   try {
-    const response = await invokeLLM({
+    const response = await invokeConfiguredLLM({
       messages: [
         { role: "system", content: "Eres un clasificador de oportunidades comerciales. Responde solo con JSON válido." },
         { role: "user", content: prompt },
