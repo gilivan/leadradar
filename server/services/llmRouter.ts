@@ -193,7 +193,8 @@ async function invokeGemini(params: {
     },
   };
 
-  const url = `https://generativelanguage.googleapis.com/v1/models/${params.model}:generateContent?key=${params.apiKey}`;
+  // v1beta is required for systemInstruction support
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${params.model}:generateContent?key=${params.apiKey}`;
 
   const res = await fetch(url, {
     method: "POST",
