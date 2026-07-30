@@ -38,6 +38,11 @@ export async function setupVite(app: Express, server: Server) {
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid()}"`
       );
+      // Inject local-auth meta tag so frontend knows auth mode
+      const localAuthMeta = process.env.LOCAL_AUTH === "true"
+        ? `<meta name="local-auth" content="true">`
+        : `<meta name="local-auth" content="false">`;
+      template = template.replace(`</head>`, `${localAuthMeta}\n  </head>`);
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
@@ -62,6 +67,19 @@ export function serveStatic(app: Express) {
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    const indexPath = path.resolve(distPath, "index.html");
+    if (process.env.LOCAL_AUTH === "true") {
+      // Inject local-auth meta tag into production build
+      fs.readFile(indexPath, "utf-8", (err, data) => {
+        if (err) return res.sendFile(indexPath);
+        const modified = data.replace(
+          `</head>`,
+          `<meta name="local-auth" content="true">\n  </head>`
+        );
+        res.set("Content-Type", "text/html").send(modified);
+      });
+    } else {
+      res.sendFile(indexPath);
+    }
   });
 }

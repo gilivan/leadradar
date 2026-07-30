@@ -199,7 +199,7 @@ export function buildDigestHtml(
                     <!-- El Grupo logo -->
                     <a href="https://elgrupo.com.co" target="_blank" style="text-decoration:none;">
                       <img
-                        src="https://3000-iu5lslfkq4yqfmkgs9qfs-94efe48b.us2.manus.computer/manus-storage/elgrupo-logo-email_76c2ce5f.png"
+                        src="https://leadradar.manus.space/manus-storage/elgrupo-logo-email_76c2ce5f.png"
                         alt="El Grupo"
                         width="110"
                         style="display:block;height:auto;opacity:0.9;"
@@ -273,7 +273,7 @@ export function buildDigestHtml(
                   <td align="right" style="vertical-align:bottom;">
                     <a href="https://elgrupo.com.co" target="_blank">
                       <img
-                        src="https://3000-iu5lslfkq4yqfmkgs9qfs-94efe48b.us2.manus.computer/manus-storage/elgrupo-logo-email_76c2ce5f.png"
+                        src="https://leadradar.manus.space/manus-storage/elgrupo-logo-email_76c2ce5f.png"
                         alt="El Grupo"
                         width="80"
                         style="display:block;height:auto;opacity:0.5;"

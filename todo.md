@@ -76,6 +76,20 @@
 - [ ] Configurar programaciones de ejecución (hora Colombia)
 - [ ] Publicar la aplicación desde el botón Publish
 
+## Instalación Local — Julio 2026
+- [x] Módulo localAuth.ts: login con usuario/contraseña + JWT sin Manus OAuth
+- [x] Rutas /api/auth/login y /api/auth/logout en modo LOCAL_AUTH=true
+- [x] Página LocalLogin.tsx con formulario de acceso
+- [x] DashboardLayout redirige a /login en modo local
+- [x] Meta tag local-auth inyectado en HTML por el servidor
+- [x] LLM router lanza error descriptivo en modo local sin proveedor configurado
+- [x] URLs de logo en emails actualizadas a dominio público permanente
+- [x] Cron local con node-cron para ejecuciones programadas sin Manus Heartbeat
+- [x] env.example con todas las variables necesarias
+- [x] docker-compose.yml con MySQL + app
+- [x] Dockerfile.local para self-hosting
+- [x] INSTALL_LOCAL.md con guía completa paso a paso
+
 ## LLM Configurable — Julio 2026
 - [x] Servicio LLM unificado que enruta al proveedor configurado (Manus, OpenAI, Anthropic, Gemini, Groq)
 - [x] Bloque de configuración de proveedor LLM en panel Admin → Configuración General

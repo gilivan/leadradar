@@ -58,7 +58,15 @@ export async function invokeConfiguredLLM(params: {
   const config = await getLLMConfig();
 
   if (config.provider === "manus" || !config.apiKey) {
-    // Use built-in Manus LLM
+    // Use built-in Manus LLM (only available when deployed on Manus platform)
+    // In local mode, if no external provider is configured, this will fail with a clear message
+    const isLocalMode = process.env.LOCAL_AUTH === "true";
+    if (isLocalMode && (!config.apiKey || config.provider === "manus")) {
+      throw new Error(
+        "En modo local, debes configurar un proveedor LLM externo (Gemini, OpenAI, Anthropic o Groq) " +
+        "con su API key en Configuración General → Proveedor LLM."
+      );
+    }
     return invokeLLM(params as Parameters<typeof invokeLLM>[0]);
   }
 
