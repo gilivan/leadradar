@@ -28,6 +28,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+function DecisionBadge({ decision }: { decision: string | null }) {
+  const map: Record<string, { label: string; cls: string }> = {
+    qualified: { label: "Calificada", cls: "bg-emerald-100 text-emerald-700" },
+    review: { label: "Revisión humana", cls: "bg-amber-100 text-amber-700" },
+    pending: { label: "Pendiente", cls: "bg-slate-100 text-slate-600" },
+    discarded: { label: "Descartada", cls: "bg-rose-100 text-rose-700" },
+  };
+  const item = map[decision ?? ""] ?? map.pending;
+  return <span className={cn("inline-flex items-center px-3 py-1 rounded-full text-sm font-medium", item.cls)}>{item.label}</span>;
+}
+
 function RelevanceBadge({ label }: { label: string | null }) {
   const map: Record<string, { label: string; cls: string }> = {
     high: { label: "Alta relevancia", cls: "badge-high" },
@@ -92,12 +103,15 @@ export default function OpportunityDetail() {
     );
   }
 
-  const score = ((opp.relevanceScore ?? 0) * 100).toFixed(0);
+  const score = (opp.commercialScore ?? 0).toFixed(0);
   const keywords = (opp.detectedKeywords as string[]) ?? [];
+  const services = (opp.serviceCategories as string[]) ?? [];
+  const evidence = (opp.classificationEvidence as string[]) ?? [];
+  const exclusions = (opp.exclusionReasons as string[]) ?? [];
 
   return (
     <AppLayout
-      title="Detalle de oportunidad"
+      title="Detalle de resultado"
       subtitle={`#${opp.id} · Detectada ${format(new Date(opp.createdAt), "d MMM yyyy, HH:mm", { locale: es })}`}
       actions={
         <Link href="/opportunities">
@@ -139,9 +153,10 @@ export default function OpportunityDetail() {
                 </div>
               </div>
               <div className="flex flex-col items-end gap-2">
-                <RelevanceBadge label={opp.relevanceLabel} />
+                <DecisionBadge decision={opp.classificationDecision} />
+                {opp.classificationDecision === "qualified" && <RelevanceBadge label={opp.relevanceLabel} />}
                 <p className="text-2xl font-bold text-foreground tabular-nums">{score}%</p>
-                <p className="text-xs text-muted-foreground">Score de relevancia</p>
+                <p className="text-xs text-muted-foreground">Puntaje comercial · Confianza {Math.round((opp.classificationConfidence ?? 0) * 100)}%</p>
               </div>
             </div>
 
@@ -192,7 +207,7 @@ export default function OpportunityDetail() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-xs text-muted-foreground">
-                  Tu feedback ayuda al sistema a mejorar la clasificación de futuras oportunidades.
+                  Tu validación crea etiquetas de calidad para medir la precisión del clasificador. No convierte frases aisladas en reglas automáticas.
                 </p>
                 <div className="flex items-center gap-3">
                   <Button
@@ -206,7 +221,7 @@ export default function OpportunityDetail() {
                     )}
                   >
                     <ThumbsUp className="w-4 h-4" />
-                    {opp.userFeedback === "relevant" ? "Marcada como relevante" : "Es relevante"}
+                    {opp.userFeedback === "relevant" ? "Calificada manualmente" : "Confirmar oportunidad"}
                   </Button>
                   <Button
                     variant="outline"
@@ -219,7 +234,7 @@ export default function OpportunityDetail() {
                     )}
                   >
                     <ThumbsDown className="w-4 h-4" />
-                    {opp.userFeedback === "irrelevant" ? "Marcada como irrelevante" : "No es relevante"}
+                    {opp.userFeedback === "irrelevant" ? "Descartada manualmente" : "Descartar"}
                   </Button>
                 </div>
                 <Textarea
@@ -240,40 +255,26 @@ export default function OpportunityDetail() {
           {/* ── Sidebar ─────────────────────────────────────────────── */}
           <div className="space-y-4">
             {/* Classification */}
-            <Card className="border border-border shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold">Clasificación IA</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Categoría de intención</p>
-                  <p className="text-sm font-medium text-foreground capitalize">
-                    {(opp.intentCategory || "—").replace(/_/g, " ")}
-                  </p>
-                </div>
-                {opp.classificationReason && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Razón de clasificación</p>
-                    <p className="text-xs text-foreground/80 leading-relaxed">{opp.classificationReason}</p>
-                  </div>
-                )}
-                {keywords.length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-2">Keywords detectadas</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {keywords.map((kw) => (
-                        <span
-                          key={kw}
-                          className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/10 text-accent text-xs font-medium"
-                        >
-                          {kw}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          <Card className="border border-border shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">Decisión y evidencia</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Tipo de intención</p>
+                <p className="text-sm font-medium text-foreground capitalize">{(opp.intentCategory || "no aplica").replace(/_/g, " ")}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Lado del autor</p>
+                <p className="text-sm font-medium text-foreground capitalize">{(opp.authorSide || "unknown").replace(/_/g, " ")}</p>
+              </div>
+              {opp.classificationReason && <div><p className="text-xs text-muted-foreground mb-1">Razón</p><p className="text-xs text-foreground/80 leading-relaxed">{opp.classificationReason}</p></div>}
+              {evidence.length > 0 && <div><p className="text-xs text-muted-foreground mb-2">Evidencia textual</p><ul className="space-y-1.5">{evidence.map((item) => <li key={item} className="text-xs text-emerald-700 leading-relaxed">“{item}”</li>)}</ul></div>}
+              {services.length > 0 && <div><p className="text-xs text-muted-foreground mb-2">Servicios identificados</p><div className="flex flex-wrap gap-1.5">{services.map((item) => <span key={item} className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/10 text-accent text-xs font-medium">{item.replace(/_/g, " ")}</span>)}</div></div>}
+              {exclusions.length > 0 && <div><p className="text-xs text-muted-foreground mb-2">Motivos de exclusión</p><div className="flex flex-wrap gap-1.5">{exclusions.map((item) => <span key={item} className="inline-flex items-center px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 text-xs font-medium">{item.replace(/_/g, " ")}</span>)}</div></div>}
+              {keywords.length > 0 && <div><p className="text-xs text-muted-foreground mb-2">Términos detectados</p><div className="flex flex-wrap gap-1.5">{keywords.map((kw) => <span key={kw} className="inline-flex items-center px-2 py-0.5 rounded-md bg-muted text-muted-foreground text-xs font-medium">{kw}</span>)}</div></div>}
+            </CardContent>
+          </Card>
 
             {/* Status */}
             <Card className="border border-border shadow-sm">

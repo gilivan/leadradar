@@ -69,6 +69,25 @@ const RELEVANCE_OPTIONS = [
   { value: "irrelevant", label: "Irrelevante" },
 ];
 
+const DECISION_OPTIONS = [
+  { value: "qualified", label: "Calificadas" },
+  { value: "review", label: "Por revisar" },
+  { value: "pending", label: "Pendientes de IA" },
+  { value: "discarded", label: "Descartadas" },
+  { value: "all", label: "Todas las decisiones" },
+];
+
+function DecisionBadge({ decision }: { decision: string | null }) {
+  const map: Record<string, { label: string; cls: string }> = {
+    qualified: { label: "Calificada", cls: "bg-emerald-100 text-emerald-700" },
+    review: { label: "Revisar", cls: "bg-amber-100 text-amber-700" },
+    pending: { label: "Pendiente IA", cls: "bg-slate-100 text-slate-700" },
+    discarded: { label: "Descartada", cls: "bg-red-100 text-red-700" },
+  };
+  const item = map[decision ?? ""] ?? map.pending;
+  return <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold", item.cls)}>{item.label}</span>;
+}
+
 const SORT_OPTIONS = [
   { value: "date", label: "Más reciente", icon: CalendarClock },
   { value: "relevance", label: "Mayor relevancia", icon: Star },
@@ -80,6 +99,7 @@ export default function Opportunities() {
   const [keyword, setKeyword] = useState("");
   const [country, setCountry] = useState("");
   const [relevanceLabel, setRelevanceLabel] = useState("all");
+  const [classificationDecision, setClassificationDecision] = useState<"qualified" | "review" | "pending" | "discarded" | "all">("qualified");
   const [status, setStatus] = useState("all");
   const [sortBy, setSortBy] = useState<"date" | "relevance" | "region">("date");
   const [isExporting, setIsExporting] = useState(false);
@@ -96,6 +116,7 @@ export default function Opportunities() {
     keyword: keyword || undefined,
     country: country || undefined,
     relevanceLabel: relevanceLabel !== "all" ? relevanceLabel : undefined,
+    classificationDecision: classificationDecision !== "all" ? classificationDecision : undefined,
     status: status !== "all" ? status : undefined,
     sortBy,
   });
@@ -104,6 +125,7 @@ export default function Opportunities() {
     {
       country: country || undefined,
       relevanceLabel: relevanceLabel !== "all" ? relevanceLabel : undefined,
+      classificationDecision: classificationDecision !== "all" ? classificationDecision : undefined,
       status: status !== "all" ? status : undefined,
     },
     { enabled: false }
@@ -138,9 +160,12 @@ export default function Opportunities() {
         Empresa: opp.authorCompany ?? "",
         "URL LinkedIn": opp.linkedinUrl ?? "",
         Texto: opp.rawText,
-        "Score relevancia": ((opp.relevanceScore ?? 0) * 100).toFixed(0) + "%",
-        "Nivel relevancia": opp.relevanceLabel ?? "",
+        "Puntaje comercial": (opp.commercialScore ?? 0).toFixed(0) + "%",
+        "Decisión": opp.classificationDecision ?? "pending",
+        "Confianza": ((opp.classificationConfidence ?? 0) * 100).toFixed(0) + "%",
         "Categoría intención": opp.intentCategory ?? "",
+        "Evidencia": Array.isArray(opp.classificationEvidence) ? opp.classificationEvidence.join(" | ") : "",
+        "Motivos de descarte": Array.isArray(opp.exclusionReasons) ? opp.exclusionReasons.join(" | ") : "",
         País: opp.country ?? "",
         Ciudad: opp.city ?? "",
         "Keyword búsqueda": opp.searchKeyword ?? "",
@@ -166,18 +191,19 @@ export default function Opportunities() {
     setKeyword("");
     setCountry("");
     setRelevanceLabel("all");
+    setClassificationDecision("qualified");
     setStatus("all");
     setPage(1);
   };
 
-  const hasFilters = keyword || country || relevanceLabel !== "all" || status !== "all";
+  const hasFilters = keyword || country || relevanceLabel !== "all" || classificationDecision !== "qualified" || status !== "all";
   const totalPages = Math.ceil((listQuery.data?.total ?? 0) / 20);
   const currentSortOption = SORT_OPTIONS.find((o) => o.value === sortBy)!;
 
   return (
     <AppLayout
-      title="Oportunidades comerciales"
-      subtitle={`${listQuery.data?.total ?? "—"} resultados encontrados`}
+      title="Oportunidades calificadas"
+      subtitle={`${listQuery.data?.total ?? "—"} solicitudes con intención comercial verificada`}
       actions={
         <Button
           variant="outline"
@@ -225,6 +251,12 @@ export default function Opportunities() {
                     <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                   ))}
                 </SelectContent>
+              </Select>
+
+              {/* Commercial decision filter */}
+              <Select value={classificationDecision} onValueChange={(v) => { setClassificationDecision(v as "qualified" | "review" | "pending" | "discarded" | "all"); setPage(1); }}>
+                <SelectTrigger className="w-44 h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>{DECISION_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
               </Select>
 
               {/* Status filter */}
@@ -323,7 +355,7 @@ export default function Opportunities() {
                         title="Ordenar por relevancia"
                       >
                         <span className="flex items-center gap-1">
-                          Relevancia
+                          Puntaje comercial
                           {sortBy === "relevance" && <Star className="w-3 h-3 fill-current" />}
                         </span>
                       </th>
@@ -414,12 +446,15 @@ export default function Opportunities() {
                                 {opp.intentCategory.replace(/_/g, " ")}
                               </span>
                             )}
+                            {Array.isArray(opp.classificationEvidence) && opp.classificationEvidence[0] && (
+                              <span className="text-[10px] text-emerald-700 mt-1 block line-clamp-1">Evidencia: “{opp.classificationEvidence[0]}”</span>
+                            )}
                           </td>
                           <td className="px-5 py-4">
                             <div className="space-y-1">
-                              <RelevanceBadge label={opp.relevanceLabel} />
+                              <DecisionBadge decision={opp.classificationDecision} />
                               <p className="text-[10px] text-muted-foreground tabular-nums">
-                                {((opp.relevanceScore ?? 0) * 100).toFixed(0)}%
+                                {(opp.commercialScore ?? 0).toFixed(0)}% · {((opp.classificationConfidence ?? 0) * 100).toFixed(0)}% confianza
                               </p>
                             </div>
                           </td>

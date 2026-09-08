@@ -15,6 +15,13 @@
       "when": 1779722499799,
       "tag": "0001_luxuriant_randall_flagg",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1788890700000,
+      "tag": "0002_commercial_intent_quality",
+      "breakpoints": true
     }
   ]
 }

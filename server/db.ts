@@ -118,6 +118,7 @@ export interface OpportunityFilters {
   city?: string;
   keyword?: string;
   relevanceLabel?: string;
+  classificationDecision?: string;
   status?: string;
   userFeedback?: string;
   page?: number;
@@ -140,6 +141,7 @@ export async function getOpportunities(filters: OpportunityFilters = {}) {
   if (filters.city) conditions.push(eq(opportunities.city, filters.city));
   if (filters.keyword) conditions.push(like(opportunities.searchKeyword, `%${filters.keyword}%`));
   if (filters.relevanceLabel) conditions.push(eq(opportunities.relevanceLabel, filters.relevanceLabel as "high" | "medium" | "low" | "irrelevant"));
+  if (filters.classificationDecision) conditions.push(eq(opportunities.classificationDecision, filters.classificationDecision as "qualified" | "review" | "discarded" | "pending"));
   if (filters.status) conditions.push(eq(opportunities.status, filters.status as "new" | "reviewed" | "contacted" | "discarded"));
   if (filters.userFeedback) conditions.push(eq(opportunities.userFeedback, filters.userFeedback as "relevant" | "irrelevant"));
 
@@ -148,10 +150,10 @@ export async function getOpportunities(filters: OpportunityFilters = {}) {
   const sortBy = filters.sortBy ?? "date";
   const orderClause =
     sortBy === "relevance"
-      ? [desc(opportunities.relevanceScore), desc(opportunities.createdAt)]
+      ? [desc(opportunities.commercialScore), desc(opportunities.classificationConfidence), desc(opportunities.createdAt)]
       : sortBy === "region"
       ? [asc(opportunities.country), asc(opportunities.city), desc(opportunities.createdAt)]
-      : [desc(opportunities.createdAt), desc(opportunities.relevanceScore)];
+      : [desc(opportunities.createdAt), desc(opportunities.commercialScore)];
 
   const items = await db
     .select()
@@ -184,16 +186,24 @@ export async function getDashboardStats() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const total = allOpps.length;
-  const todayCount = allOpps.filter((o) => o.createdAt >= today).length;
-  const highCount = allOpps.filter((o) => o.relevanceLabel === "high").length;
-  const newCount = allOpps.filter((o) => o.status === "new").length;
-  const avgScore =
-    total > 0
-      ? allOpps.reduce((sum, o) => sum + (o.relevanceScore || 0), 0) / total
-      : 0;
+  const totalCandidates = allOpps.length;
+  const qualified = allOpps.filter((o) => o.classificationDecision === "qualified");
+  const qualifiedCount = qualified.length;
+  const qualifiedToday = qualified.filter((o) => o.createdAt >= today).length;
+  const highCount = qualified.filter((o) => o.relevanceLabel === "high").length;
+  const newCount = qualified.filter((o) => o.status === "new").length;
+  const reviewCount = allOpps.filter((o) => o.classificationDecision === "review").length;
+  const pendingCount = allOpps.filter((o) => o.classificationDecision === "pending").length;
+  const discardedCount = allOpps.filter((o) => o.classificationDecision === "discarded").length;
+  const avgCommercialScore = qualifiedCount > 0
+    ? qualified.reduce((sum, o) => sum + (o.commercialScore || 0), 0) / qualifiedCount
+    : 0;
 
-  return { total, todayCount, highCount, newCount, avgScore };
+  return {
+    totalCandidates, qualifiedCount, qualifiedToday, reviewCount, pendingCount, discardedCount, avgCommercialScore,
+    // Compatibility fields used by older UI components.
+    total: qualifiedCount, todayCount: qualifiedToday, highCount, newCount, avgScore: avgCommercialScore / 100,
+  };
 }
 
 // ─── Execution Logs ───────────────────────────────────────────────────────────

@@ -49,7 +49,8 @@ function interpolateTemplate(template: string, opportunity: Opportunity): string
     .replace(/\{\{authorProfileUrl\}\}/g, opportunity.authorProfileUrl || "#")
     .replace(/\{\{linkedinUrl\}\}/g, opportunity.linkedinUrl || "#")
     .replace(/\{\{rawText\}\}/g, (opportunity.rawText || "").substring(0, 500))
-    .replace(/\{\{relevanceScore\}\}/g, ((opportunity.relevanceScore || 0) * 100).toFixed(0) + "%")
+    .replace(/\{\{relevanceScore\}\}/g, (opportunity.commercialScore || 0).toFixed(0) + "%")
+    .replace(/\{\{commercialScore\}\}/g, (opportunity.commercialScore || 0).toFixed(0) + "%")
     .replace(/\{\{relevanceLabel\}\}/g, opportunity.relevanceLabel || "")
     .replace(/\{\{intentCategory\}\}/g, opportunity.intentCategory || "")
     .replace(/\{\{country\}\}/g, opportunity.country || "")
@@ -95,7 +96,8 @@ export function buildDigestHtml(
   // Build each opportunity card
   const oppCards = opportunities
     .map((opp, idx) => {
-      const score = ((opp.relevanceScore || 0) * 100).toFixed(0);
+      const score = (opp.commercialScore || 0).toFixed(0);
+      const evidence = ((opp.classificationEvidence as string[]) || [])[0] || "Solicitud comercial validada por el clasificador.";
       const snippet = (opp.rawText || "").substring(0, 320).trim();
       const hasMore = (opp.rawText || "").length > 320;
       const detailUrl = `${appBaseUrl}/opportunities/${opp.id}`;
@@ -118,7 +120,7 @@ export function buildDigestHtml(
                 </td>
                 <td align="right" style="white-space:nowrap;">
                   <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:600;${labelBadgeStyle(opp.relevanceLabel)}">
-                    ${labelText(opp.relevanceLabel)} · ${score}%
+                    Oportunidad calificada · ${score}%
                   </span>
                 </td>
               </tr>
@@ -129,6 +131,7 @@ export function buildDigestHtml(
         <tr>
           <td style="background:#ffffff;padding:16px 20px;">
             ${opp.intentCategory ? `<p style="margin:0 0 10px;font-family:'Inter',Arial,sans-serif;font-size:12px;color:#7c3aed;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">🎯 ${opp.intentCategory}</p>` : ""}
+            <p style="margin:0 0 10px;font-family:'Inter',Arial,sans-serif;font-size:12px;color:#15803d;line-height:1.5;"><strong>Evidencia:</strong> “${evidence}”</p>
             <p style="margin:0 0 12px;font-family:'Inter',Arial,sans-serif;font-size:14px;color:#334155;line-height:1.65;">
               "${snippet}${hasMore ? "…" : ""}"
             </p>
@@ -230,8 +233,8 @@ export function buildDigestHtml(
                 Hola, equipo de El Grupo 👋
               </p>
               <p style="margin:0 0 24px;font-family:'Inter',Arial,sans-serif;font-size:14px;color:#475569;line-height:1.7;">
-                LeadRadar ha identificado <strong>${count === 1 ? "una nueva oportunidad" : `<strong>${count} nuevas oportunidades</strong>`}</strong> en LinkedIn que podrían representar una apertura comercial para El Grupo.
-                A continuación encontrarás el detalle de cada hallazgo. Te invitamos a explorarlos y a marcar los que consideres más relevantes directamente en la plataforma para mejorar la precisión del sistema.
+                LeadRadar ha identificado <strong>${count === 1 ? "una oportunidad calificada" : `${count} oportunidades calificadas`}</strong> en LinkedIn. Cada resultado cumple señales de intención comercial, servicio objetivo y evidencia textual; vacantes, autopromoción y opiniones se excluyen de esta alerta.
+                A continuación encontrarás el detalle de cada solicitud para validarla y gestionarla en la plataforma.
               </p>
 
               <!-- Opportunity cards -->
@@ -305,25 +308,26 @@ export async function sendDigestAlert(
   if (!config.host || !config.user || !config.password || !config.recipient) {
     throw new Error("Configuración SMTP incompleta. Verifica host, usuario, contraseña y destinatario.");
   }
-  if (opportunities.length === 0) return { sent: 0, failed: 0, errors: [] };
+  const qualified = opportunities.filter((opp) => opp.classificationDecision === "qualified");
+  if (qualified.length === 0) return { sent: 0, failed: 0, errors: [] };
 
   const transporter = buildTransporter(config);
-  const count = opportunities.length;
+  const count = qualified.length;
   const subject =
     config.subject ||
     (count === 1
       ? "LeadRadar — 1 nueva oportunidad comercial detectada"
       : `LeadRadar — ${count} nuevas oportunidades comerciales detectadas`);
 
-  const html = buildDigestHtml(opportunities, appBaseUrl);
+  const html = buildDigestHtml(qualified, appBaseUrl);
 
   // Plain-text fallback
   const text = [
     `LeadRadar — ${count === 1 ? "1 nueva oportunidad" : `${count} nuevas oportunidades`} comerciales detectadas`,
     "",
-    ...opportunities.map(
+    ...qualified.map(
       (opp, i) =>
-        `${i + 1}. ${opp.authorName || "Desconocido"} (${opp.relevanceLabel || ""} · ${((opp.relevanceScore || 0) * 100).toFixed(0)}%)\n   ${(opp.rawText || "").substring(0, 200)}\n   LinkedIn: ${opp.linkedinUrl || "#"}`
+        `${i + 1}. ${opp.authorName || "Desconocido"} (Oportunidad calificada · ${(opp.commercialScore || 0).toFixed(0)}%)\n   Evidencia: ${((opp.classificationEvidence as string[]) || [])[0] || "Solicitud comercial validada"}\n   ${(opp.rawText || "").substring(0, 200)}\n   LinkedIn: ${opp.linkedinUrl || "#"}`
     ),
     "",
     "No responder este correo, dado que se ha generado de forma automática por LeadRadar.",

@@ -20,6 +20,7 @@ import {
   upsertSetting,
 } from "../db";
 import { runScrapeJob } from "../services/scrapeOrchestrator";
+import { reclassifyHistoricalOpportunities } from "../services/historicalReclassification";
 import { validateApifyToken } from "../services/apify";
 import { testEmailConnection } from "../services/emailAlert";
 import { testLLMConnection } from "../services/llmRouter";
@@ -207,6 +208,12 @@ export const adminRouter = router({
     const logId = await runScrapeJob("manual");
     return { logId };
   }),
+
+  reclassifyHistorical: protectedProcedure
+    .input(z.object({ limit: z.number().min(1).max(100).default(100) }))
+    .mutation(async ({ input }) => {
+      return reclassifyHistoricalOpportunities(input.limit);
+    }),
 
   getExecutionLogs: protectedProcedure
     .input(z.object({ limit: z.number().default(20) }))

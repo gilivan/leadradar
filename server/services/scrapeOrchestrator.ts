@@ -8,7 +8,8 @@
  * 6. Update execution log
  */
 
-import { and, desc, eq, gte } from "drizzle-orm";
+import { createHash } from "node:crypto";
+import { eq, or } from "drizzle-orm";
 import {
   appSettings,
   executionLogs,
@@ -22,6 +23,21 @@ import { classifyPost } from "./classifier";
 import { sendDigestAlert } from "./emailAlert";
 import { expandSearchContext } from "./contextExpander";
 import type { EmailConfig } from "./emailAlert";
+import type { LinkedInPost } from "./apify";
+
+function createDedupeKey(post: LinkedInPost): string {
+  const canonical = post.url
+    ? post.url.trim().toLowerCase()
+    : [post.authorName || "", post.publishedAt || "", post.text || ""]
+        .join("|").replace(/\s+/g, " ").trim().toLowerCase();
+  return createHash("sha256").update(canonical).digest("hex").slice(0, 64);
+}
+
+function toScoreThreshold(rawValue: string | undefined, fallback: number): number {
+  const value = Number.parseFloat(rawValue || "");
+  if (!Number.isFinite(value)) return fallback;
+  return value <= 1 ? Math.round(value * 100) : value;
+}
 
 export type TriggerType = "manual" | "scheduled";
 
@@ -41,6 +57,10 @@ export async function runScrapeJob(triggeredBy: TriggerType = "manual"): Promise
   let totalFound = 0;
   let totalClassified = 0;
   let totalOpportunities = 0;
+  let totalReview = 0;
+  let totalDiscarded = 0;
+  let totalPending = 0;
+  let totalDuplicates = 0;
   let totalEmailsSent = 0;
   const logDetails: Record<string, unknown>[] = [];
   const profilesRun: number[] = [];
@@ -55,7 +75,8 @@ export async function runScrapeJob(triggeredBy: TriggerType = "manual"): Promise
 
     const apifyToken = settings["apify_token"] || "";
     const actorId = settings["apify_actor_id"] || "harvestapi/linkedin-post-search";
-    const minScore = parseFloat(settings["min_relevance_score"] || "0.3");
+    const alertMinScore = toScoreThreshold(settings["min_commercial_score"] || settings["min_relevance_score"], 75);
+    const alertMinConfidence = Math.max(0, Math.min(1, Number.parseFloat(settings["min_classification_confidence"] || "0.85") || 0.85));
 
     if (!apifyToken) {
       throw new Error("API token de Apify no configurado. Ve a Configuración > Apify para agregarlo.");
@@ -182,80 +203,64 @@ export async function runScrapeJob(triggeredBy: TriggerType = "manual"): Promise
           timestamp: new Date().toISOString(),
         });
 
-        // Classify each post
-        const highRelevanceOpps = [];
+        // Candidate recovery is broad; only the intent-v2 classifier decides
+        // whether a post is a qualified commercial opportunity.
+        const qualifiedForAlerts = [];
+        const profileCounts = { qualified: 0, review: 0, discarded: 0, pending: 0, duplicates: 0 };
 
         for (const post of posts) {
           totalClassified++;
-          const classification = await classifyPost(post, feedbackRuleList, minScore);
-
-          if (classification.relevanceScore < minScore) continue;
-
-          // Check for duplicate (same URL)
-          if (post.url) {
-            const existing = await db
-              .select({ id: opportunities.id })
-              .from(opportunities)
-              .where(eq(opportunities.linkedinUrl, post.url))
-              .limit(1);
-            if (existing.length > 0) continue;
+          const classification = await classifyPost(post, feedbackRuleList);
+          const dedupeKey = createDedupeKey(post);
+          const existing = post.url
+            ? await db.select({ id: opportunities.id }).from(opportunities).where(or(eq(opportunities.linkedinUrl, post.url), eq(opportunities.dedupeKey, dedupeKey))).limit(1)
+            : await db.select({ id: opportunities.id }).from(opportunities).where(eq(opportunities.dedupeKey, dedupeKey)).limit(1);
+          if (existing.length > 0) {
+            totalDuplicates++;
+            profileCounts.duplicates++;
+            continue;
           }
 
+          if (classification.classificationDecision === "qualified") { totalOpportunities++; profileCounts.qualified++; }
+          else if (classification.classificationDecision === "review") { totalReview++; profileCounts.review++; }
+          else if (classification.classificationDecision === "pending") { totalPending++; profileCounts.pending++; }
+          else { totalDiscarded++; profileCounts.discarded++; }
+
           const [oppResult] = await db.insert(opportunities).values({
-            executionLogId: logId,
-            searchProfileId: profile.id,
-            linkedinUrl: post.url || null,
-            authorName: post.authorName || null,
-            authorTitle: post.authorTitle || null,
-            authorCompany: post.authorCompany || null,
-            authorProfileUrl: post.authorProfileUrl || null,
-            contentType: post.contentType,
-            rawText: post.text,
+            executionLogId: logId, searchProfileId: profile.id, linkedinUrl: post.url || null,
+            authorName: post.authorName || null, authorTitle: post.authorTitle || null,
+            authorCompany: post.authorCompany || null, authorProfileUrl: post.authorProfileUrl || null,
+            contentType: post.contentType, rawText: post.text,
             publishedAt: post.publishedAt ? new Date(post.publishedAt) : null,
-            relevanceScore: classification.relevanceScore,
-            relevanceLabel: classification.relevanceLabel,
-            classificationReason: classification.classificationReason,
-            detectedKeywords: classification.detectedKeywords,
-            intentCategory: classification.intentCategory,
-            country: profile.country || null,
-            city: profile.city || null,
-            searchKeyword: queries[0] || null,
-            status: "new",
+            relevanceScore: classification.relevanceScore, relevanceLabel: classification.relevanceLabel,
+            commercialScore: classification.commercialScore, classificationDecision: classification.classificationDecision,
+            classificationConfidence: classification.classificationConfidence, classificationVersion: classification.classificationVersion,
+            classificationReason: classification.classificationReason, detectedKeywords: classification.detectedKeywords,
+            intentCategory: classification.intentCategory, authorSide: classification.authorSide,
+            serviceCategories: classification.serviceCategories, classificationEvidence: classification.evidence,
+            exclusionReasons: classification.exclusionReasons, dedupeKey,
+            country: profile.country || null, city: profile.city || null, searchKeyword: queries[0] || null,
+            status: classification.classificationDecision === "discarded" ? "discarded" : "new",
           });
 
-          totalOpportunities++;
-
-          if (classification.relevanceLabel === "high" && emailConfig.alertsEnabled) {
+          if (classification.classificationDecision === "qualified" && classification.commercialScore >= alertMinScore && classification.classificationConfidence >= alertMinConfidence && emailConfig.alertsEnabled) {
             const oppId = (oppResult as { insertId: number }).insertId;
-            const [savedOpp] = await db
-              .select()
-              .from(opportunities)
-              .where(eq(opportunities.id, oppId))
-              .limit(1);
-            if (savedOpp) highRelevanceOpps.push(savedOpp);
+            const [savedOpp] = await db.select().from(opportunities).where(eq(opportunities.id, oppId)).limit(1);
+            if (savedOpp) qualifiedForAlerts.push(savedOpp);
           }
         }
 
-        // Send consolidated digest email for high-relevance opportunities
-        if (highRelevanceOpps.length > 0) {
-          const emailResult = await sendDigestAlert(emailConfig, highRelevanceOpps);
+        if (qualifiedForAlerts.length > 0) {
+          const emailResult = await sendDigestAlert(emailConfig, qualifiedForAlerts);
           totalEmailsSent += emailResult.sent;
-
-          // Mark as email sent
-          for (const opp of highRelevanceOpps) {
-            await db
-              .update(opportunities)
-              .set({ emailSentAt: new Date() })
-              .where(eq(opportunities.id, opp.id));
+          for (const opp of qualifiedForAlerts) {
+            await db.update(opportunities).set({ emailSentAt: new Date() }).where(eq(opportunities.id, opp.id));
           }
         }
 
         logDetails.push({
-          profileId: profile.id,
-          status: "completed",
-          opportunitiesFound: totalOpportunities,
-          highRelevanceCount: highRelevanceOpps.length,
-          timestamp: new Date().toISOString(),
+          profileId: profile.id, status: "completed", candidatesRecovered: posts.length,
+          ...profileCounts, alertsEligible: qualifiedForAlerts.length, timestamp: new Date().toISOString(),
         });
       } catch (profileErr) {
         logDetails.push({
@@ -276,6 +281,10 @@ export async function runScrapeJob(triggeredBy: TriggerType = "manual"): Promise
         totalFound,
         totalClassified,
         totalOpportunities,
+        totalReview,
+        totalDiscarded,
+        totalPending,
+        totalDuplicates,
         totalEmailsSent,
         logDetails,
         durationMs: Date.now() - startTime,
@@ -294,6 +303,10 @@ export async function runScrapeJob(triggeredBy: TriggerType = "manual"): Promise
         totalFound,
         totalClassified,
         totalOpportunities,
+        totalReview,
+        totalDiscarded,
+        totalPending,
+        totalDuplicates,
         logDetails,
         durationMs: Date.now() - startTime,
         finishedAt: new Date(),

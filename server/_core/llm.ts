@@ -56,6 +56,8 @@ export type ToolChoice =
   | ToolChoiceExplicit;
 
 export type InvokeParams = {
+  /** Modelo del catálogo vigente. La clasificación puede elegir uno por llamada. */
+  model?: string;
   messages: Message[];
   tools?: Tool[];
   toolChoice?: ToolChoice;
@@ -269,6 +271,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   assertApiKey();
 
   const {
+    model,
     messages,
     tools,
     toolChoice,
@@ -277,10 +280,14 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     output_schema,
     responseFormat,
     response_format,
+    maxTokens,
+    max_tokens,
   } = params;
 
   const payload: Record<string, unknown> = {
-    model: "gemini-2.5-flash",
+    // Modelo verificado en el catálogo actual. La llamada puede sobrescribirlo
+    // para casos especializados sin forzar cambios globales.
+    model: model || "gpt-5-mini",
     messages: messages.map(normalizeMessage),
   };
 
@@ -296,9 +303,12 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.tool_choice = normalizedToolChoice;
   }
 
-  payload.max_tokens = 32768
-  payload.thinking = {
-    "budget_tokens": 128
+  // GPT-5 usa max_completion_tokens. No se habilita razonamiento para
+  // clasificación: reduce latencia y evita consumir presupuesto sin aportar
+  // precisión material en esta tarea estructurada.
+  const completionLimit = maxTokens ?? max_tokens;
+  if (completionLimit) {
+    payload.max_completion_tokens = completionLimit;
   }
 
   const normalizedResponseFormat = normalizeResponseFormat({

@@ -84,11 +84,16 @@ export default function AdminSettings() {
     onSuccess: (data) => toast.success(data.message),
     onError: (e) => toast.error(`Error: ${e.message}`),
   });
+  const reclassifyMutation = trpc.admin.reclassifyHistorical.useMutation({
+    onSuccess: (summary) => toast.success(`Histórico recalibrado: ${summary.qualified} calificadas, ${summary.review} por revisar y ${summary.discarded} descartadas.`),
+    onError: (e) => toast.error(e.message),
+  });
 
   // Apify / classification state
   const [apifyToken, setApifyToken] = useState("");
   const [showToken, setShowToken] = useState(false);
-  const [minScore, setMinScore] = useState("0.3");
+  const [minCommercialScore, setMinCommercialScore] = useState("75");
+  const [minConfidence, setMinConfidence] = useState("0.85");
   const [maxResults, setMaxResults] = useState("50");
   const [apifyActorId, setApifyActorId] = useState("apify/linkedin-post-search-scraper");
 
@@ -102,7 +107,9 @@ export default function AdminSettings() {
     if (settingsQuery.data) {
       const map = Object.fromEntries(settingsQuery.data.map((s) => [s.key, s.value ?? ""]));
       setApifyToken(map["apify_token"] ?? "");
-      setMinScore(map["min_relevance_score"] ?? "0.3");
+      const legacyScore = Number.parseFloat(map["min_relevance_score"] ?? "0.75");
+      setMinCommercialScore(map["min_commercial_score"] ?? String(legacyScore <= 1 ? Math.round(legacyScore * 100) : legacyScore));
+      setMinConfidence(map["min_classification_confidence"] ?? "0.85");
       setMaxResults(map["max_results_per_run"] ?? "50");
       setApifyActorId(map["apify_actor_id"] ?? "apify/linkedin-post-search-scraper");
       setLlmProvider((map["llm_provider"] as LLMProvider) ?? "manus");
@@ -115,7 +122,8 @@ export default function AdminSettings() {
     updateMutation.mutate({
       settings: [
         { key: "apify_token", value: apifyToken },
-        { key: "min_relevance_score", value: minScore },
+        { key: "min_commercial_score", value: minCommercialScore },
+        { key: "min_classification_confidence", value: minConfidence },
         { key: "max_results_per_run", value: maxResults },
         { key: "apify_actor_id", value: apifyActorId },
       ],
@@ -231,18 +239,18 @@ export default function AdminSettings() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Score mínimo de relevancia</Label>
+                <Label className="text-sm font-medium">Puntaje comercial mínimo</Label>
                 <Input
                   type="number"
                   min="0"
-                  max="1"
-                  step="0.05"
-                  value={minScore}
-                  onChange={(e) => setMinScore(e.target.value)}
+                  max="100"
+                  step="5"
+                  value={minCommercialScore}
+                  onChange={(e) => setMinCommercialScore(e.target.value)}
                   className="text-sm"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Entre 0 y 1. Oportunidades por debajo se descartan.
+Solo una solicitud calificada puede activar alerta a partir de este puntaje. Recomendado: 75.
                 </p>
               </div>
               <div className="space-y-2">
@@ -261,6 +269,11 @@ export default function AdminSettings() {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Confianza mínima para alertas</Label>
+              <Input type="number" min="0" max="1" step="0.05" value={minConfidence} onChange={(e) => setMinConfidence(e.target.value)} className="text-sm" />
+              <p className="text-xs text-muted-foreground">Exige evidencia suficiente antes de alertar. Recomendado: 0.85.</p>
+            </div>
             <div className="flex justify-end">
               <Button onClick={handleSaveApify} disabled={updateMutation.isPending} className="gap-2">
                 {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -421,8 +434,21 @@ export default function AdminSettings() {
               </Button>
             </div>
           </CardContent>
-        </Card>
+                </Card>
 
+        <Card className="border border-border shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base">Recalibración del histórico</CardTitle>
+            <CardDescription className="text-xs">Procesa 100 candidatos antiguos por vez con la clasificación de intención comercial. No envía correos ni borra publicaciones.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center justify-between gap-4">
+            <p className="text-xs text-muted-foreground max-w-xl">El proceso conserva la evidencia y los motivos de descarte. Repite por lotes hasta vaciar la cola pendiente.</p>
+            <Button variant="outline" onClick={() => reclassifyMutation.mutate({ limit: 100 })} disabled={reclassifyMutation.isPending} className="gap-2">
+              {reclassifyMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              Recalibrar 100 registros
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </AppLayout>
   );

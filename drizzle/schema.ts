@@ -88,7 +88,12 @@ export const executionLogs = mysqlTable("execution_logs", {
   profilesRun: json("profilesRun").$type<number[]>(),
   totalFound: int("totalFound").default(0),
   totalClassified: int("totalClassified").default(0),
+  /** Posts calificados como oportunidades comerciales reales. */
   totalOpportunities: int("totalOpportunities").default(0),
+  totalReview: int("totalReview").default(0),
+  totalDiscarded: int("totalDiscarded").default(0),
+  totalPending: int("totalPending").default(0),
+  totalDuplicates: int("totalDuplicates").default(0),
   totalEmailsSent: int("totalEmailsSent").default(0),
   errorMessage: text("errorMessage"),
   logDetails: json("logDetails").$type<Record<string, unknown>[]>(),
@@ -117,16 +122,30 @@ export const opportunities = mysqlTable("opportunities", {
   publishedAt: timestamp("publishedAt"),
 
   // Classification
-  relevanceScore: float("relevanceScore").default(0), // 0.0 – 1.0
-  relevanceLabel: mysqlEnum("relevanceLabel", ["high", "medium", "low", "irrelevant"]).default("medium"),
+  /** Legacy relevance fields retained for backwards-compatible exports. */
+  relevanceScore: float("relevanceScore").default(0), // commercialScore / 100 only when qualified
+  relevanceLabel: mysqlEnum("relevanceLabel", ["high", "medium", "low", "irrelevant"]).default("irrelevant"),
+
+  /** Auditable commercial-intent classification (intent-v2). */
+  classificationDecision: mysqlEnum("classificationDecision", ["qualified", "review", "discarded", "pending"]).default("pending").notNull(),
+  classificationConfidence: float("classificationConfidence").default(0),
+  commercialScore: float("commercialScore").default(0), // 0 – 100; ranks only qualified opportunities
+  classificationVersion: varchar("classificationVersion", { length: 64 }).default("legacy"),
   classificationReason: text("classificationReason"),
   detectedKeywords: json("detectedKeywords").$type<string[]>(),
-  intentCategory: varchar("intentCategory", { length: 128 }), // e.g. "busca agencia", "campaña publicitaria"
+  intentCategory: varchar("intentCategory", { length: 128 }),
+  authorSide: mysqlEnum("authorSide", ["buyer", "provider", "intermediary", "job_seeker", "unknown"]).default("unknown"),
+  serviceCategories: json("serviceCategories").$type<string[]>(),
+  classificationEvidence: json("classificationEvidence").$type<string[]>(),
+  exclusionReasons: json("exclusionReasons").$type<string[]>(),
+  /** Groups duplicate posts/reposts into the same commercial event. */
+  dedupeKey: varchar("dedupeKey", { length: 255 }),
 
   // Status & feedback
   status: mysqlEnum("status", ["new", "reviewed", "contacted", "discarded"]).default("new"),
   userFeedback: mysqlEnum("userFeedback", ["relevant", "irrelevant"]),
   feedbackNote: text("feedbackNote"),
+  feedbackReason: varchar("feedbackReason", { length: 128 }),
   feedbackAt: timestamp("feedbackAt"),
 
   // Email alert

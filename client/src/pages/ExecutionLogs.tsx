@@ -134,11 +134,14 @@ export default function ExecutionLogs() {
                           </div>
                           <div className="flex items-center gap-4 mt-1.5">
                             <span className="text-xs text-muted-foreground">
-                              {log.totalOpportunities ?? 0} oportunidades detectadas
+                              {log.totalFound ?? 0} candidatas recuperadas
                             </span>
-                            {(log.totalOpportunities ?? 0) > 0 && (
-                              <span className="text-xs text-emerald-600 font-medium">
-                                +{log.totalOpportunities} nuevas
+                            <span className="text-xs text-emerald-600 font-medium">
+                              {log.totalOpportunities ?? 0} calificadas
+                            </span>
+                            {(log.totalReview ?? 0) > 0 && (
+                              <span className="text-xs text-amber-600 font-medium">
+                                {log.totalReview} por revisar
                               </span>
                             )}
                             {duration != null && (
@@ -181,16 +184,21 @@ export default function ExecutionLogs() {
                               </pre>
                             </div>
                           )}
-                          <div className="grid grid-cols-3 gap-3 text-xs">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                             {[
-                              { label: "Inicio", value: format(new Date(detailQuery.data.startedAt), "HH:mm:ss") },
+                              { label: "Candidatas", value: detailQuery.data.totalFound ?? 0 },
+                              { label: "Calificadas", value: detailQuery.data.totalOpportunities ?? 0 },
+                              { label: "Por revisar", value: detailQuery.data.totalReview ?? 0 },
+                              { label: "Descartadas", value: detailQuery.data.totalDiscarded ?? 0 },
+                              { label: "Duplicadas", value: detailQuery.data.totalDuplicates ?? 0 },
+                              { label: "Pendientes", value: detailQuery.data.totalPending ?? 0 },
+                              { label: "Emails enviados", value: detailQuery.data.totalEmailsSent ?? 0 },
                               {
                                 label: "Fin",
                                 value: detailQuery.data.finishedAt
                                   ? format(new Date(detailQuery.data.finishedAt), "HH:mm:ss")
                                   : "—",
                               },
-                              { label: "Emails enviados", value: detailQuery.data.totalEmailsSent ?? 0 },
                             ].map(({ label, value }) => (
                               <div key={label} className="rounded-lg bg-background border border-border p-2.5">
                                 <p className="text-muted-foreground">{label}</p>

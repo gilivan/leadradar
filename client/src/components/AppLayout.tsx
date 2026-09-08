@@ -49,7 +49,7 @@ const navGroups: NavGroup[] = [
     title: "Principal",
     items: [
       { label: "Dashboard", href: "/", icon: BarChart3 },
-      { label: "Oportunidades", href: "/opportunities", icon: Target },
+      { label: "Oportunidades calificadas", href: "/opportunities", icon: Target },
       { label: "Historial de ejecuciones", href: "/logs", icon: History },
     ],
   },
@@ -102,11 +102,11 @@ export default function AppLayout({ children, title, subtitle, actions }: AppLay
             </div>
             <div className="text-left">
               <h1 className="text-xl font-semibold text-foreground">LeadRadar</h1>
-              <p className="text-xs text-muted-foreground">Plataforma de oportunidades comerciales</p>
+              <p className="text-xs text-muted-foreground">Inteligencia de intención comercial</p>
             </div>
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Detecta oportunidades comerciales en LinkedIn de forma automatizada con inteligencia artificial.
+            Identifica solicitudes comerciales verificables en LinkedIn y excluye vacantes, autopromoción y contenido editorial.
           </p>
           <Button asChild className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
             <a href={getLoginUrl()}>Iniciar sesión</a>
@@ -133,18 +133,18 @@ export default function AppLayout({ children, title, subtitle, actions }: AppLay
           {sidebarOpen && (
             <div className="overflow-hidden">
               <p className="text-sm font-semibold text-sidebar-foreground leading-tight">LeadRadar</p>
-              <p className="text-[10px] text-sidebar-foreground/50 leading-tight">Oportunidades comerciales</p>
+              <p className="text-[10px] text-sidebar-foreground/50 leading-tight">Inteligencia comercial</p>
             </div>
           )}
         </div>
 
-        {/* New opportunities badge */}
+        {/* Qualified opportunities badge */}
         {sidebarOpen && statsQuery.data && statsQuery.data.newCount > 0 && (
           <div className="mx-3 mt-3 px-3 py-2 rounded-lg bg-accent/10 border border-accent/20">
             <div className="flex items-center gap-2">
               <Bell className="w-3.5 h-3.5 text-accent shrink-0" />
               <span className="text-xs text-sidebar-foreground/80">
-                <span className="font-semibold text-accent">{statsQuery.data.newCount}</span> nuevas oportunidades
+                <span className="font-semibold text-accent">{statsQuery.data.newCount}</span> calificadas por gestionar
               </span>
             </div>
           </div>

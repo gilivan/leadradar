@@ -52,7 +52,7 @@ export default function Dashboard() {
   const recentQuery = trpc.opportunities.list.useQuery({
     page: 1,
     pageSize: 8,
-    relevanceLabel: "high",
+    classificationDecision: "qualified",
     sortBy: "date",
   });
 
@@ -81,36 +81,36 @@ export default function Dashboard() {
 
   const statCards = [
     {
-      title: "Total oportunidades",
-      value: stats?.total ?? "—",
+      title: "Oportunidades calificadas",
+      value: stats?.qualifiedCount ?? stats?.total ?? "—",
       icon: Target,
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
+      description: "Intención comercial verificada",
+    },
+    {
+      title: "Candidatas recuperadas",
+      value: stats?.totalCandidates ?? "—",
+      icon: TrendingUp,
       color: "text-blue-600",
       bg: "bg-blue-50",
-      description: "Detectadas históricamente",
+      description: "Aún no son oportunidades por defecto",
     },
     {
-      title: "Alta relevancia",
-      value: stats?.highCount ?? "—",
-      icon: Star,
-      color: "text-amber-600",
-      bg: "bg-amber-50",
-      description: "Score ≥ 75%",
-    },
-    {
-      title: "Nuevas hoy",
-      value: stats?.todayCount ?? "—",
+      title: "Calificadas hoy",
+      value: stats?.qualifiedToday ?? stats?.todayCount ?? "—",
       icon: Zap,
       color: "text-emerald-600",
       bg: "bg-emerald-50",
-      description: "Detectadas en las últimas 24h",
+      description: "Solicitudes validadas en 24 horas",
     },
     {
-      title: "Pendientes de revisión",
-      value: stats?.newCount ?? "—",
+      title: "Cola de revisión",
+      value: stats?.reviewCount ?? "—",
       icon: Clock,
-      color: "text-purple-600",
-      bg: "bg-purple-50",
-      description: "Sin revisar aún",
+      color: "text-amber-600",
+      bg: "bg-amber-50",
+      description: "Señal parcial: requiere revisión humana",
     },
   ];
 
@@ -178,9 +178,9 @@ export default function Dashboard() {
                 <div>
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                    Oportunidades de alta relevancia
+                    Oportunidades calificadas
                   </CardTitle>
-                  <p className="text-xs text-muted-foreground mt-0.5">Más recientes primero</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Con intención comercial y evidencia verificable</p>
                 </div>
                 <Link href="/opportunities">
                   <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground hover:text-foreground">
@@ -204,9 +204,9 @@ export default function Dashboard() {
                 ) : recentQuery.data?.items.length === 0 ? (
                   <div className="px-6 py-12 text-center">
                     <Target className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
-                    <p className="text-sm text-muted-foreground">Sin oportunidades de alta relevancia aún.</p>
+                    <p className="text-sm text-muted-foreground">Sin oportunidades calificadas aún.</p>
                     <p className="text-xs text-muted-foreground/70 mt-1">
-                      Ejecuta el scraper para detectar oportunidades con score ≥ 75%.
+                      Ejecuta el scraper o recalibra el histórico para clasificar candidatos por intención comercial.
                     </p>
                   </div>
                 ) : (
@@ -234,8 +234,8 @@ export default function Dashboard() {
                                 <span className="text-[10px] text-muted-foreground/70">
                                   {opp.country}{opp.city ? ` · ${opp.city}` : ""}
                                 </span>
-                                <span className="text-[10px] text-muted-foreground/70">
-                                  Score: {((opp.relevanceScore || 0) * 100).toFixed(0)}%
+                                <span className="text-[10px] text-emerald-700 font-medium">
+                                  Puntaje comercial: {(opp.commercialScore || 0).toFixed(0)}%
                                 </span>
                                 <span className="text-[10px] text-muted-foreground/70">
                                   {formatDistanceToNow(new Date(opp.createdAt), { addSuffix: true, locale: es })}
@@ -265,18 +265,18 @@ export default function Dashboard() {
                   <div>
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Score promedio</p>
                     <p className="text-2xl font-bold text-foreground tabular-nums">
-                      {stats ? `${(stats.avgScore * 100).toFixed(0)}%` : "—"}
+                      {stats ? `${(stats.avgCommercialScore ?? (stats.avgScore * 100)).toFixed(0)}%` : "—"}
                     </p>
                   </div>
                 </div>
                 <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                   <div
                     className="h-full bg-accent rounded-full transition-all duration-700"
-                    style={{ width: `${(stats?.avgScore || 0) * 100}%` }}
+                    style={{ width: `${stats?.avgCommercialScore ?? ((stats?.avgScore || 0) * 100)}%` }}
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Basado en clasificación LLM + reglas aprendidas
+                  Promedio de oportunidades calificadas con evidencia de compra
                 </p>
               </CardContent>
             </Card>
@@ -320,7 +320,7 @@ export default function Dashboard() {
                                 {log.triggeredBy === "manual" ? "Manual" : "Programada"}
                               </span>
                               <span className="text-[10px] text-muted-foreground">
-                                {log.totalOpportunities} oportunidades
+                                {log.totalOpportunities} calificadas · {log.totalFound} candidatas
                               </span>
                             </div>
                             <p className="text-[10px] text-muted-foreground/70 mt-0.5">
