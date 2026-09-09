@@ -172,11 +172,27 @@ async function invokeAnthropic(params: {
 
 // ─── Google Gemini ───────────────────────────────────────────────────────────
 
+export function extractGeminiResponseText(
+  parts: Array<{ text?: string; thought?: boolean }> | undefined
+): string {
+  return (parts ?? [])
+    .filter((part) => !part.thought && typeof part.text === "string")
+    .map((part) => part.text)
+    .join("");
+}
+
 async function invokeGemini(params: {
   messages: LLMMessage[];
   apiKey: string;
   model: string;
-  response_format?: unknown;
+  response_format?: {
+    type: "json_schema";
+    json_schema: {
+      name: string;
+      strict: boolean;
+      schema: Record<string, unknown>;
+    };
+  };
   temperature?: number;
 }) {
   const systemMsg = params.messages.find((m) => m.role === "system")?.content ?? "";
@@ -192,13 +208,26 @@ async function invokeGemini(params: {
     parts: [{ text: m.content }],
   }));
 
+  const generationConfig: Record<string, unknown> = {
+    temperature: params.temperature ?? 0.2,
+    // Classification evidence can require several fields and excerpts. Reserve
+    // enough output space so JSON mode is not cut mid-object.
+    maxOutputTokens: 2048,
+  };
+  if (params.response_format) {
+    // Google supports structured JSON for generateContent via generationConfig.
+    generationConfig.responseMimeType = "application/json";
+    generationConfig.responseJsonSchema = params.response_format.json_schema.schema;
+    // Gemini 2.5 Flash uses dynamic reasoning by default. This simple,
+    // deterministic classification needs no hidden thinking tokens; disabling
+    // them prevents the output budget from ending before the JSON is complete.
+    generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  }
+
   const body: Record<string, unknown> = {
     contents,
     systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-    generationConfig: {
-      temperature: params.temperature ?? 0.2,
-      maxOutputTokens: 1024,
-    },
+    generationConfig,
   };
 
   // v1beta is required for systemInstruction support
@@ -216,9 +245,11 @@ async function invokeGemini(params: {
   }
 
   const data = (await res.json()) as {
-    candidates: Array<{ content: { parts: Array<{ text: string }> } }>;
+    candidates: Array<{
+      content: { parts: Array<{ text?: string; thought?: boolean }> };
+    }>;
   };
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  const text = extractGeminiResponseText(data.candidates?.[0]?.content?.parts);
 
   return { choices: [{ message: { content: text } }] };
 }

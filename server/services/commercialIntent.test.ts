@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { preClassifyPost } from "./classifier";
+import { normalizeLLMClassification, parseLLMJson, preClassifyPost } from "./classifier";
 
 function classify(text: string) {
   return preClassifyPost({ text });
@@ -72,5 +72,43 @@ describe("preClassifyPost", () => {
       "Necesitamos una agencia BTL para activaciones, material POP y eventos en punto de venta. Compartiremos el brief y presupuesto."
     );
     expect(result).toBeNull();
+  });
+});
+
+describe("normalizeLLMClassification", () => {
+  it("convierte una respuesta parcial en una decisión revisable sin lanzar un error", () => {
+    const result = normalizeLLMClassification({
+      classificationDecision: "qualified",
+      commercialScore: 90,
+      classificationConfidence: 0.8,
+      classificationReason: "El autor solicita propuestas.",
+      authorSide: "buyer",
+    });
+
+    expect(result.classificationDecision).toBe("qualified");
+    expect(result.evidence).toEqual([]);
+    expect(result.serviceCategories).toEqual([]);
+    expect(result.detectedKeywords).toEqual([]);
+  });
+
+  it("convierte valores y decisiones no válidos en valores seguros para revisión", () => {
+    const result = normalizeLLMClassification({
+      classificationDecision: "invalid",
+      commercialScore: "alto",
+      authorSide: "autor_desconocido",
+      evidence: ["cita válida", 123],
+    });
+
+    expect(result.classificationDecision).toBe("review");
+    expect(result.commercialScore).toBe(0);
+    expect(result.authorSide).toBe("unknown");
+    expect(result.evidence).toEqual(["cita válida"]);
+  });
+});
+
+describe("parseLLMJson", () => {
+  it("admite JSON correcto envuelto en un bloque Markdown", () => {
+    expect(parseLLMJson("```json\n{\"classificationDecision\":\"review\"}\n```"))
+      .toEqual({ classificationDecision: "review" });
   });
 });

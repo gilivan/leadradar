@@ -70,11 +70,15 @@
 - [x] Badge "Nuevo" en oportunidades cargadas en la última ejecución
 
 ## Pendiente (post-entrega — requiere configuración del usuario)
-- [ ] Configurar API token de Apify desde el panel admin
-- [ ] Configurar SMTP para alertas por correo
-- [ ] Crear perfiles de búsqueda con keywords relevantes
+- [x] Configurar API token de Apify desde el panel admin
+- [x] Configurar SMTP para alertas por correo
+- [x] Crear perfiles de búsqueda con keywords relevantes
 - [ ] Configurar programaciones de ejecución (hora Colombia)
 - [ ] Publicar la aplicación desde el botón Publish
+
+## Verificaciones operativas pendientes
+- [x] Unificar las claves SMTP entre la interfaz y el backend, y validar el remitente
+- [x] Revisar que los perfiles de búsqueda activos tengan keywords no vacías y alineadas con El Grupo
 
 ## Instalación Local — Julio 2026
 - [x] Módulo localAuth.ts: login con usuario/contraseña + JWT sin Manus OAuth
@@ -96,7 +100,12 @@
 - [x] Prueba de conexión al proveedor LLM desde el panel admin
 
 ## Mejora de precisión comercial — Despliegue
-- [ ] Sincronizar el commit 1fb9324 de gilivan/leadradar y revisar sus cambios
-- [ ] Aplicar y verificar la migración 0002_commercial_intent_quality.sql
-- [ ] Recalibrar el histórico de oportunidades por lotes sin enviar alertas
-- [ ] Validar resultados de precisión y guardar un checkpoint listo para publicar
+- [x] Sincronizar el commit 1fb9324 de gilivan/leadradar y revisar sus cambios
+- [x] Aplicar y verificar la migración 0002_commercial_intent_quality.sql
+- [x] Normalizar respuestas JSON incompletas del LLM durante la clasificación comercial
+- [x] Recalibrar el histórico de oportunidades por lotes sin enviar alertas
+- [x] Validar resultados de precisión y dejar un checkpoint listo para publicar
+
+## Ajustes finales de la mejora de precisión
+- [x] Depurar el perfil activo “Especialista Digital” con términos de intención comercial alineados con El Grupo
+- [x] Guardar el checkpoint final posterior a la migración, los fixes y la recalibración

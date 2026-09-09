@@ -139,6 +139,7 @@ export default function AdminEmail() {
   const [smtpPort, setSmtpPort] = useState("587");
   const [smtpUser, setSmtpUser] = useState("");
   const [smtpPass, setSmtpPass] = useState("");
+  const [smtpFrom, setSmtpFrom] = useState("");
   const [recipient, setRecipient] = useState("");
   const [alertsEnabled, setAlertsEnabled] = useState(false);
   const [minScoreAlert, setMinScoreAlert] = useState("0.7");
@@ -198,7 +199,8 @@ export default function AdminEmail() {
       setSmtpHost(map["smtp_host"] ?? "");
       setSmtpPort(map["smtp_port"] ?? "587");
       setSmtpUser(map["smtp_user"] ?? "");
-      setSmtpPass(map["smtp_pass"] ?? "");
+      setSmtpPass(map["smtp_password"] ?? map["smtp_pass"] ?? "");
+      setSmtpFrom(map["smtp_from"] ?? map["smtp_user"] ?? "");
       setRecipient(map["email_recipient"] ?? "");
       setAlertsEnabled(map["email_alerts_enabled"] === "true");
       setMinScoreAlert(map["email_min_score"] ?? "0.7");
@@ -211,7 +213,8 @@ export default function AdminEmail() {
         { key: "smtp_host", value: smtpHost },
         { key: "smtp_port", value: smtpPort },
         { key: "smtp_user", value: smtpUser },
-        { key: "smtp_pass", value: smtpPass },
+        { key: "smtp_password", value: smtpPass },
+        { key: "smtp_from", value: smtpFrom },
         { key: "email_recipient", value: recipient },
         { key: "email_alerts_enabled", value: String(alertsEnabled) },
         { key: "email_min_score", value: minScoreAlert },
@@ -298,6 +301,18 @@ export default function AdminEmail() {
                     <Label className="text-sm font-medium">Contraseña</Label>
                     <Input type="password" value={smtpPass} onChange={(e) => setSmtpPass(e.target.value)} placeholder="••••••••" />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Remitente</Label>
+                  <Input
+                    type="email"
+                    value={smtpFrom}
+                    onChange={(e) => setSmtpFrom(e.target.value)}
+                    placeholder={smtpUser || "alertas@empresa.com"}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Dirección visible para los destinatarios. Si la dejas vacía, se usará el usuario SMTP.
+                  </p>
                 </div>
                 <div className="flex gap-3">
                   <Button

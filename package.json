@@ -10,6 +10,8 @@
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
+    "recalibrate:history": "tsx scripts/recalibrate-history.mjs",
+    "verify:smtp": "tsx scripts/verify-smtp.mjs",
     "db:push": "drizzle-kit generate && drizzle-kit migrate"
   },
   "dependencies": {

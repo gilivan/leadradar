@@ -88,6 +88,54 @@ function scoreToLabel(score: number): "high" | "medium" | "low" | "irrelevant" {
   return "irrelevant";
 }
 
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+/**
+ * Some providers implement JSON mode as a best effort. Normalize their output
+ * before applying commercial guardrails so omitted optional arrays do not cause
+ * a runtime error or leave an otherwise usable record in pending state.
+ */
+export function normalizeLLMClassification(value: unknown): Omit<ClassificationResult, "relevanceScore" | "relevanceLabel" | "classificationVersion"> {
+  const raw = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const decision = raw.classificationDecision;
+  const authorSide = raw.authorSide;
+  const commercialScore = typeof raw.commercialScore === "number" && Number.isFinite(raw.commercialScore)
+    ? raw.commercialScore
+    : 0;
+  const confidence = typeof raw.classificationConfidence === "number" && Number.isFinite(raw.classificationConfidence)
+    ? raw.classificationConfidence
+    : 0;
+
+  return {
+    classificationDecision: decision === "qualified" || decision === "review" || decision === "discarded" ? decision : "review",
+    commercialScore,
+    classificationConfidence: confidence,
+    classificationReason: typeof raw.classificationReason === "string" && raw.classificationReason.trim()
+      ? raw.classificationReason
+      : "El modelo devolvió una decisión parcial; requiere revisión humana.",
+    detectedKeywords: asStringArray(raw.detectedKeywords),
+    intentCategory: typeof raw.intentCategory === "string" ? raw.intentCategory : "no_aplica",
+    authorSide: authorSide === "buyer" || authorSide === "provider" || authorSide === "intermediary" || authorSide === "job_seeker" || authorSide === "unknown"
+      ? authorSide
+      : "unknown",
+    serviceCategories: asStringArray(raw.serviceCategories),
+    evidence: asStringArray(raw.evidence),
+    exclusionReasons: asStringArray(raw.exclusionReasons),
+  };
+}
+
+export function parseLLMJson(rawContent: unknown): unknown {
+  const jsonText = (typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent))
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "");
+  return JSON.parse(jsonText);
+}
+
 function buildResult(
   partial: Omit<ClassificationResult, "relevanceScore" | "relevanceLabel" | "classificationVersion"> &
     Partial<Pick<ClassificationResult, "relevanceScore" | "relevanceLabel" | "classificationVersion">>
@@ -193,14 +241,18 @@ Servicios ya detectados por reglas: ${knownServices.join(", ") || "ninguno"}`;
 
     const rawContent = response.choices?.[0]?.message?.content;
     if (!rawContent) throw new Error("LLM devolvió respuesta vacía");
-    const parsed = JSON.parse(typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent)) as Omit<ClassificationResult, "relevanceScore" | "relevanceLabel" | "classificationVersion">;
+    const parsed = normalizeLLMClassification(parseLLMJson(rawContent));
     if (parsed.classificationDecision === "qualified" && (parsed.authorSide !== "buyer" || parsed.evidence.length === 0 || parsed.serviceCategories.length === 0)) {
       parsed.classificationDecision = "review";
       parsed.classificationReason = "El modelo detectó señales parciales, pero faltó evidencia suficiente de comprador y servicio para calificar automáticamente.";
       parsed.commercialScore = Math.min(parsed.commercialScore, 70);
     }
     return buildResult({ ...parsed, classificationVersion: CLASSIFICATION_VERSION });
-  } catch {
+  } catch (error) {
+    console.warn(
+      "[Classifier] No se pudo completar la clasificación semántica:",
+      error instanceof Error ? error.message : String(error)
+    );
     return buildResult({ commercialScore: 0, classificationDecision: "pending", classificationConfidence: 0, classificationReason: "Pendiente de clasificación semántica: no se generó una decisión automática.", detectedKeywords: knownServices, intentCategory: "no_aplica", authorSide: "unknown", serviceCategories: knownServices, evidence: [], exclusionReasons: ["clasificador_semantico_no_disponible"], classificationVersion: `${CLASSIFICATION_VERSION}-pending` });
   }
 }

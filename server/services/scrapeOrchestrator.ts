@@ -39,6 +39,20 @@ function toScoreThreshold(rawValue: string | undefined, fallback: number): numbe
   return value <= 1 ? Math.round(value * 100) : value;
 }
 
+export function buildEmailConfig(settings: Record<string, string>): EmailConfig {
+  return {
+    host: settings["smtp_host"] || "",
+    port: Number.parseInt(settings["smtp_port"] || "587", 10),
+    user: settings["smtp_user"] || "",
+    // smtp_pass is the legacy key saved by earlier AdminEmail versions.
+    password: settings["smtp_password"] || settings["smtp_pass"] || "",
+    from: settings["smtp_from"] || settings["smtp_user"] || "",
+    recipient: settings["email_recipient"] || "",
+    subject: settings["email_subject"] || "Nueva oportunidad comercial",
+    alertsEnabled: settings["email_alerts_enabled"] === "true",
+  };
+}
+
 export type TriggerType = "manual" | "scheduled";
 
 export async function runScrapeJob(triggeredBy: TriggerType = "manual"): Promise<number> {
@@ -105,16 +119,7 @@ export async function runScrapeJob(triggeredBy: TriggerType = "manual"): Promise
     }));
 
     // Load email config
-    const emailConfig: EmailConfig = {
-      host: settings["smtp_host"] || "",
-      port: parseInt(settings["smtp_port"] || "587"),
-      user: settings["smtp_user"] || "",
-      password: settings["smtp_password"] || "",
-      from: settings["smtp_from"] || "",
-      recipient: settings["email_recipient"] || "",
-      subject: settings["email_subject"] || "Nueva oportunidad comercial",
-      alertsEnabled: settings["email_alerts_enabled"] === "true",
-    };
+    const emailConfig = buildEmailConfig(settings);
 
     // Process each profile
     for (const profile of profiles) {
