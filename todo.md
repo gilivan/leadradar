@@ -94,3 +94,9 @@
 - [x] Servicio LLM unificado que enruta al proveedor configurado (Manus, OpenAI, Anthropic, Gemini, Groq)
 - [x] Bloque de configuración de proveedor LLM en panel Admin → Configuración General
 - [x] Prueba de conexión al proveedor LLM desde el panel admin
+
+## Mejora de precisión comercial — Despliegue
+- [ ] Sincronizar el commit 1fb9324 de gilivan/leadradar y revisar sus cambios
+- [ ] Aplicar y verificar la migración 0002_commercial_intent_quality.sql
+- [ ] Recalibrar el histórico de oportunidades por lotes sin enviar alertas
+- [ ] Validar resultados de precisión y guardar un checkpoint listo para publicar
